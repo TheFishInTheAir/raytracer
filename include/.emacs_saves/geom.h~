@@ -1,0 +1,30 @@
+#pragma once
+#include <stdbool.h>
+
+
+typedef float vec3[3];
+typedef float vec4[4];
+
+/*******/
+/* Ray */
+/*******/
+typedef struct
+{
+    vec3 orig;
+    vec3 dir;
+    //float t_min, t_max;
+} ray;
+
+
+/**********/
+/* Sphere */
+/**********/
+
+typedef struct
+{
+    vec3 pos;
+    float radius;
+} sphere;
+
+float does_collide_sphere(sphere, ray);
+ray generate_ray(int x, int y, int width, int height, float fov);

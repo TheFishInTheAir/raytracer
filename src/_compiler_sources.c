@@ -5,10 +5,12 @@
 #include <vec.h>
 #undef  MMX_IMPLEMENTATION
 
+#ifdef WIN32
+#include <win32.c>
+#endif
 
 #include <startup.c>
 #include <geom.c>
-#include <win32.c>
 #include <parallel.c>
 
 /*

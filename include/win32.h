@@ -1,7 +1,7 @@
 #pragma once
 #include <windows.h>
 #include <stdbool.h>
-
+#include <os_abs.h>
 //TODO: add v-table for this
 
 typedef struct
@@ -22,6 +22,8 @@ typedef struct
     //Bitbuffer
 } win32_context;
 
+
+os_abs init_win32_abs();
 
 void win32_start_thread(void (*func)(void*), void* data);
 

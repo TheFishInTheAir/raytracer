@@ -1,5 +1,5 @@
 //#define SET_PIXEL(x,y, tex, result)
-#define FOV 60.0f
+#define FOV 80.0f
 
 #define vec3 float3
 #define vec4 float4
@@ -110,11 +110,11 @@ float does_collide_sphere(sphere s, ray r)
     return t0;
 }
 
-unsigned int getColour(vec4 col) //TODO: refactor
+unsigned int get_colour(vec4 col)
 {
     unsigned int outCol = 0;
 
-    col = clamp(col, 0, 1);
+    col = clamp(col, 0.0f, 1.0f);
 
     outCol |= 0xff000000 & (unsigned int)(col.w*255)<<24;
     outCol |= 0x00ff0000 & (unsigned int)(col.x*255)<<16;
@@ -127,8 +127,74 @@ unsigned int getColour(vec4 col) //TODO: refactor
     /* outCol |= 0x0000ff00 & min((unsigned int)(col.y*255), (unsigned int)255)<<8; */
     /* outCol |= 0x000000ff & min((unsigned int)(col.z*255), (unsigned int)255); */
     return outCol;
+    //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
+
 }
 
+
+vec4 get_from_colour(unsigned int raw)
+{
+    vec4 col;
+
+    col.w = (float)((raw & 0xff000000) >> 24) / 255.0f;
+    col.x = (float)((raw & 0x00ff0000) >> 16) / 255.0f;
+    col.y = (float)((raw & 0x0000ff00) >> 8)  / 255.0f;
+    col.z = (float)(raw & 0x000000ff)  / 255.0f;
+
+    return col;
+}
+
+unsigned int get_colour_signed(vec4 col) //NOTE: THIS IS TRUNCATING FLOATS
+{
+    unsigned int out_col = 0;
+    char* out_col_ref = (char*) &out_col;
+    //col /= 2;
+    //col += 0.5f;
+
+    //col = clamp(col, -1.0f, 1.0f);
+
+    *(out_col_ref)   = (char) (col.z*126);
+    *(out_col_ref+1) = (char) (col.y*126);
+    *(out_col_ref+2) = (char) (col.x*126);
+    *(out_col_ref+3) = (char) (col.w*126);
+/*
+    outCol |= 0xff000000 & ((char)(col.w*255)|0x00000000)<<24;
+    outCol |= 0x00ff0000 & ((char)(col.x*255)|0x00000000)<<16;
+    outCol |= 0x0000ff00 & ((char)(col.y*255)|0x00000000)<<8;
+    outCol |= 0x000000ff & (char)(col.z*255);
+*/
+
+    /* outCol |= 0xff000000 & min((unsigned int)(col.w*255), (unsigned int)255)<<24; */
+    /* outCol |= 0x00ff0000 & min((unsigned int)(col.x*255), (unsigned int)255)<<16; */
+    /* outCol |= 0x0000ff00 & min((unsigned int)(col.y*255), (unsigned int)255)<<8; */
+    /* outCol |= 0x000000ff & min((unsigned int)(col.z*255), (unsigned int)255); */
+    return out_col;
+}
+
+vec4 get_from_colour_signed(unsigned int raw)
+{
+    vec4 col;
+
+    char* raw_ref = (char*) &raw;
+
+    col.z = ((float)*(raw_ref+0))/126.0f;
+    col.y = ((float)*(raw_ref+1))/126.0f;
+    col.x = ((float)*(raw_ref+2))/126.0f;
+    col.w = ((float)*(raw_ref+3))/126.0f;
+
+    /* col.w = (float)((raw & 0xff000000) >> 24) / 255.0f; */
+    /* col.x = (float)((raw & 0x00ff0000) >> 16) / 255.0f; */
+    /* col.y = (float)((raw & 0x0000ff00) >> 8)  / 255.0f; */
+    /* col.z = (float)(raw & 0x000000ff)  / 255.0f; */
+
+    //col -= 0.5f;
+    //col *= 2;
+    return col;
+    //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
+
+}
+
+/*
 __kernel void magenta_test(
     __global unsigned int* out_tex,
     __global float* spheres,
@@ -177,11 +243,105 @@ __kernel void magenta_test(
 
         float test_lighting = clamp((float)dot(normal, nspace_light_dir), 0.0f, 1.0f);
         //out_tex[x+y*width] = getColour( (vec4)(0.8,0.3,dist/10,0));
-        out_tex[x+y*width] = getColour( (vec4)(test_lighting));
+        out_tex[x+y*width] = get_colour( (vec4)(test_lighting));
     }
     else
     {
-        out_tex[x+y*width] = getColour( (vec4)(0.2,0.8,0.5,0));
+        out_tex[x+y*width] = get_colour( (vec4)(0.2,0.8,0.5,0));
         //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
     }
+}*/
+
+__kernel void cast_ray_test(
+    __global unsigned int* out_tex,
+    __global float* ray_buffer,
+    __global float* spheres,
+    const unsigned int width,
+    const unsigned int height)
+{
+    int id = get_global_id(0);
+    int x  = id%width;
+    int y  = id/width;
+    int offset = x+y*width;
+    int ray_offset = offset*3;
+
+    ray r;
+    r.orig = (vec3)(0,0,0);
+    //r.dir  = (vec3)(get_from_colour_signed(ray_buffer[offset]).zyz);
+    r.dir.x = ray_buffer[ray_offset];
+    r.dir.y = ray_buffer[ray_offset+1];
+    r.dir.z = ray_buffer[ray_offset+2];
+
+    //r.dir  = (vec3)(0,0,-1);
+
+    //out_tex[x+y*width] = get_colour_signed((vec4)(r.dir,0));
+    //out_tex[x+y*width] = get_colour_signed((vec4)(1,1,0,0));
+
+    //return;
+    float dist = -1;
+    sphere s;
+
+    for(int i = 0; i < SCENE_NUM_SPHERES; i++)
+    {
+        //if(i >= count)
+        //    continue;
+        sphere current_sphere = get_sphere(spheres, i);
+
+        float local_dist = does_collide_sphere(current_sphere, r);
+        if(local_dist==-1.0f)
+            continue;
+
+        if(local_dist<dist || dist == -1.0f)
+        {
+            dist = local_dist;
+            s = current_sphere;
+        }
+
+        //out_tex[x+y*width] = sphere_light_calc(get_sphere(current_sphere), r);
+        //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
+    }
+
+    if(dist!=-1)
+    {
+        vec3 p_hit = r.orig + (r.dir * dist); // O+tD
+        vec3 normal = normalize(p_hit - s.pos);
+
+        vec3 light_pos = (vec3)(2,5,-1);
+        vec3 nspace_light_dir = normalize(light_pos-s.pos);
+
+        float test_lighting = clamp((float)dot(normal, nspace_light_dir), 0.0f, 1.0f);
+        //out_tex[x+y*width] = getColour( (vec4)(0.8,0.3,dist/10,0));
+        out_tex[x+y*width] = get_colour( (vec4)(test_lighting));
+    }
+    else
+    {
+        out_tex[x+y*width] = get_colour( (vec4)(0.2,0.8,0.5,0));
+        //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
+    }
+    //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
+
+}
+
+//NOTE: it might be faster to make the ray buffer a multiple of 4 just to fit word size...
+__kernel void generate_rays(
+    __global float* out_tex,
+    const unsigned int width,
+    const unsigned int height)
+{
+    int id = get_global_id(0);
+    int x  = id%width;
+    int y  = id/width;
+    int offset = (x + y * width) * 3;
+
+
+
+    ray r = generate_ray(x,y, width, height, FOV);
+    out_tex[offset] = r.dir.x;
+    out_tex[offset+1] = r.dir.y;
+    out_tex[offset+2] = r.dir.z;
+
+
+
+    //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
+
 }

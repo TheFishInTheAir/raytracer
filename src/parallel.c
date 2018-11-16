@@ -1,5 +1,7 @@
 #include <CL/opencl.h>
 
+//Parallel util.
+
 void cl_info()
 {
 
@@ -171,12 +173,15 @@ void load_program_raw(rcl_ctx* ctx, char* data,
     {
         // Create the compute kernel in the program we wish to run
         //
+        printf("start 1\n");
         program->raw_kernels[i] = clCreateKernel(program->program, kernels[i], &err);
         if (!program->raw_kernels[i] || err != CL_SUCCESS)
         {
             printf("Error: Failed to create compute kernel!\n");
             exit(1);
         }
+        printf("start 2\n");
+
     }
 
     program->raw_data = data;

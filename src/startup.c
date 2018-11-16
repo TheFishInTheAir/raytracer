@@ -1,17 +1,26 @@
-#include <win32.h>
+#include <os_abs.h>
 #include <stdint.h>
 #include <startup.h>
 #include <stdio.h>
+#include <raytracer.h>
+#define WIN32 //BECAUSE CL IS FUCKING GAY
+
+#ifdef WIN32
+#include <win32.h>
+#endif
+
 //#include <time.h>
 #define _USE_MATH_DEFINES
 #include <math.h>
-#include <windows.h>
 #include <geom.h>
 #include <parallel.h>
 
 #define NUM_SPHERES 5
 #define STRFY(x) #x
 #define DBL_STRFY(x) STRFY(x)
+
+os_abs abst;
+
 void cast_rays(int width, int height, uint32_t* bmap)
 {
 
@@ -36,7 +45,7 @@ void cast_rays(int width, int height, uint32_t* bmap)
     dist -= 0.05f;
 
 
-    int last_time = win32_get_time_mili();
+    int last_time = os_get_time_mili(abst);
 
     const pitch = width*4;
 
@@ -63,7 +72,7 @@ void cast_rays(int width, int height, uint32_t* bmap)
     /*     stest += sqrt(d*d); // <- uncomment it to test Pow */
 
 
-    printf("frame took: %i ms\n", win32_get_time_mili()-last_time);
+    printf("frame took: %i ms\n", os_get_time_mili(abst)-last_time);
 
 }
 
@@ -90,11 +99,11 @@ void run(void* unnused_rn)
     if(isMeme=='y')
     {
 		OutputDebugStringA("YALL ARE MEMERS\n");
-        const int width = win32_get_width();
-        const int height = win32_get_height();
+        const int width = os_get_width(abst);
+        const int height = os_get_height(abst);
 
         const int pitch = width *4;
-        uint32_t* row = (uint32_t*)win32_get_bitmap_memory();
+        uint32_t* row = (uint32_t*)os_get_bitmap_memory(abst);
 
         /* while(1) */
         /* { */
@@ -106,16 +115,23 @@ void run(void* unnused_rn)
         /* } */
         cl_info();
 
-        rcl_ctx ctx;
-        create_context(&ctx);
-        char* kernels[] = {"magenta_test"};
+        rcl_ctx* rcl = (rcl_ctx*) malloc(sizeof(rcl_ctx));
+        create_context(rcl);
+        /*char* kernels[] = {"magenta_test"};
         char* macros[]  = {"#define SCENE_NUM_SPHERES " DBL_STRFY(NUM_SPHERES)};
         rcl_program program;
         load_program_url(&ctx,
                          "C:\\Users\\Ethan Breit\\AppData\\Roaming\\Emacs\\Western\\10\\Science\\Raytracer\\src\\kernels\\test.cl",
                          kernels, 1, &program,
-                         macros, 1);
+                         macros, 1);*/
+        raytracer_context* rctx = raytracer_init((unsigned int)width, (unsigned int)height,
+                                                 row, rcl);
+        scene* rscene = (scene*) malloc(sizeof(scene));
+        rscene->num_spheres = 5;
+        rscene->spheres = (sphere*) malloc(sizeof(sphere)*5);
+        rctx->stat_scene = rscene;
 
+        raytracer_prepass(rctx);
         while(should_run)
         {
             if(should_pause)
@@ -164,6 +180,8 @@ void run(void* unnused_rn)
             xv_z(s5.pos) = -11.0f;
             s5.radius    = 0.5f;
 
+
+
             if(state)
             {
                 dist += 0.05f;
@@ -177,23 +195,22 @@ void run(void* unnused_rn)
                     state=true;
             }
 
-            sphere spheres[NUM_SPHERES];
-            spheres[0] = s;
-            spheres[1] = s2;
-            spheres[2] = s3;
-            spheres[3] = s4;
-            spheres[4] = s5;
-
+            rscene->spheres[0] = s;
+            rscene->spheres[1] = s2;
+            rscene->spheres[2] = s3;
+            rscene->spheres[3] = s4;
+            rscene->spheres[4] = s5;
 
 
             //NOTE: has test hardcoded url.
-            int last_time = win32_get_time_mili();
+            int last_time = os_get_time_mili(abst);
 
-            test_sphere_raytracer(&ctx, &program, spheres, NUM_SPHERES,
-                                  row, width, height);
-            printf("frame took: %i ms\n", win32_get_time_mili()-last_time);
+            raytracer_render(rctx);
+            /*test_sphere_raytracer(&ctx, &program, spheres, NUM_SPHERES,
+              row, width, height);*/
+            printf("frame took: %i ms\n", os_get_time_mili(abst)-last_time);
 
-            win32_update();
+            os_update(abst);
         }
 
     }
@@ -201,12 +218,17 @@ void run(void* unnused_rn)
 
 }
 
+
 int startup() //mainfunction called from win32 abstraction
 {
-    win32_start();
-    win32_start_thread(run, NULL);
+#ifdef WIN32
+    abst = init_win32_abs();
+#endif
+    os_start(abst);
+    os_start_thread(abst, run, NULL);
+    //win32_start_thread(run, NULL);
 
-    win32_loop();
+    os_loop_start(abst);
     return 0;
     /*
     printf("Hello World\n");

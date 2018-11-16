@@ -13,6 +13,22 @@ const char CLASS_NAME[] = "Raytracer";
 
 static win32_context* ctx;
 
+
+os_abs init_win32_abs()
+{
+    os_abs abstraction;
+    abstraction.start_func = &win32_start;
+    abstraction.loop_start_func = &win32_loop;
+    abstraction.update_func = &win32_update;
+    abstraction.sleep_func = &win32_sleep;
+    abstraction.get_bitmap_memory_func = &win32_get_bitmap_memory;
+    abstraction.get_time_mili_func = &win32_get_time_mili;
+    abstraction.get_width_func = &win32_get_width;
+    abstraction.get_height_func = &win32_get_height;
+    abstraction.start_thread_func = &win32_start_thread;
+    return abstraction;
+}
+
 void* get_bitmap_memory()
 {
     return ctx->bitmap_memory;

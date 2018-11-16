@@ -6,7 +6,8 @@ struct sphere;
 typedef struct
 {
     sphere* spheres;
-    unsigned int num_spheres;
+    unsigned int num_spheres; //NOTE: must be constant.
+    bool spheres_changed; //should re-push values.
 
 
 } scene;

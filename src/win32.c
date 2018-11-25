@@ -276,7 +276,7 @@ void create_win32_window()
         CLASS_NAME,
         /* WS_OVERLAPPEDWINDOW, */
         (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX),
-        CW_USEDEFAULT, CW_USEDEFAULT, 900, 800,
+        CW_USEDEFAULT, CW_USEDEFAULT, 1920, 1080,
         NULL, NULL, ctx->instance, NULL);
 
     if(ctx->win == NULL)

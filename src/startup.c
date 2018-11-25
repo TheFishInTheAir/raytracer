@@ -16,6 +16,8 @@
 #include <parallel.h>
 
 #define NUM_SPHERES 5
+#define NUM_PLANES  1
+
 #define STRFY(x) #x
 #define DBL_STRFY(x) STRFY(x)
 
@@ -127,8 +129,10 @@ void run(void* unnused_rn)
         raytracer_context* rctx = raytracer_init((unsigned int)width, (unsigned int)height,
                                                  row, rcl);
         scene* rscene = (scene*) malloc(sizeof(scene));
-        rscene->num_spheres = 5;
-        rscene->spheres = (sphere*) malloc(sizeof(sphere)*5);
+        rscene->num_spheres = NUM_SPHERES;
+        rscene->spheres = (sphere*) malloc(sizeof(sphere)*NUM_SPHERES);
+        rscene->num_planes = NUM_PLANES;
+        rscene->planes = (plane*) malloc(sizeof(plane)*NUM_PLANES);
         rctx->stat_scene = rscene;
 
         raytracer_prepass(rctx);
@@ -136,6 +140,7 @@ void run(void* unnused_rn)
         {
             if(should_pause)
                 continue;
+            int last_time = os_get_time_mili(abst);
 
             if(kbhit())
             {
@@ -154,6 +159,16 @@ void run(void* unnused_rn)
 
             static float dist = -5.0f;
             static bool state = false;
+
+            plane p;
+            xv_x(p.pos) = 0.0f;
+            xv_y(p.pos) = -1.0f;
+            xv_z(p.pos) = 0.0f;
+            xv_x(p.norm) = 0.0f;
+            xv_y(p.norm) = 1.0f;
+            xv_z(p.norm) = 0.0f;
+
+
             sphere s;
             xv_x(s.pos) = 0.0f;
             xv_y(s.pos) = 0.0f;
@@ -200,10 +215,10 @@ void run(void* unnused_rn)
             rscene->spheres[2] = s3;
             rscene->spheres[3] = s4;
             rscene->spheres[4] = s5;
+            rscene->planes[0]  = p;
 
 
             //NOTE: has test hardcoded url.
-            int last_time = os_get_time_mili(abst);
 
             raytracer_render(rctx);
             /*test_sphere_raytracer(&ctx, &program, spheres, NUM_SPHERES,

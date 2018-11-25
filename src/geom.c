@@ -69,7 +69,7 @@ inline float does_collide_sphere(sphere s, ray r)
 
 inline float does_collide_plane(plane p, ray r)
 {
-    float denom = xv_dot3(r.orig, p.norm);
+    float denom = xv_dot3(r.dir, p.norm);
     if (denom > 1e-6)
     {
         vec3 l;

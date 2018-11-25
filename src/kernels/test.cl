@@ -3,6 +3,9 @@
 
 #define vec3 float3
 #define vec4 float4
+#define TYPE_SPHERE 0
+#define TYPE_PLANE  1
+
 
 
 /*******/
@@ -29,6 +32,15 @@ ray generate_ray(int x, int y, int width, int height, float fov)
     return r;
 }
 
+//OTHER THING
+typedef struct
+{
+    bool did_hit;
+    vec3 norm;
+    vec3 point;
+    vec3 colour;
+    //TODO: Add material
+} collision_result;
 
 /**********************/
 /*                    */
@@ -58,7 +70,28 @@ sphere get_sphere(__global float* sphere_data, int offset)
     return s;
 }
 
+/*********/
+/* Plane */
+/*********/
 
+typedef struct plane
+{
+    vec3 pos;
+    vec3 norm;
+} plane;
+plane get_plane(__global float* plane_data, int offset)
+{
+    plane p;
+    p.pos.x  = plane_data[0 + (offset*6)];
+    p.pos.y  = plane_data[1 + (offset*6)];
+    p.pos.z  = plane_data[2 + (offset*6)];
+
+    p.norm.x = plane_data[3 + (offset*6)];
+    p.norm.y = plane_data[4 + (offset*6)];
+    p.norm.z = plane_data[5 + (offset*6)];
+
+    return p;
+}
 /*************/
 /* Collision */
 /*************/
@@ -69,45 +102,48 @@ void swap_float(float *f1, float *f2)
     *f1 = temp;
 }
 
-bool solve_quadratic(float *a, float *b, float *c, float *x0, float *x1)
-{
-    float discr = (*b) * (*b) - 4 * (*a) * (*c);
-    // printf("test: %f    a:%f, b:%f, c:%f\n", discr, *a, *b, *c);
-    if (discr < 0.0f) return false;
-    else if (discr == 0.0f) {
-        (*x0) = (*x1) = - 0.5f * (*b) / (*a);
-    }
-    else {
-        float q = (*b > 0) ?
-            -0.5 * (*b + sqrt(discr)) :
-            -0.5 * (*b - sqrt(discr));
-        *x0 = q / *a;
-        *x1 = *c / q;
-    }
-
-    return true;
-}
-
 float does_collide_sphere(sphere s, ray r)
 {
     float t0, t1; // solutions for t if the ray intersects
 
     // analytic solution
-    vec3 L = r.orig-s.pos;
-    float a = 1.0f; //NOTE: we always normalize the direction vector.
-    float b = dot(r.dir, L) * 2.0f;
+    vec3 L = s.pos- r.orig;
+    float b = dot(r.dir, L) ;//* 2.0f;
     float c = dot(L, L) - (s.radius*s.radius); //NOTE: you can optimize out the square.
-    if (!solve_quadratic(&a, &b, &c, &t0, &t1)) return -1.0f;
 
-    if (t0 > t1) swap_float(&t0, &t1);
+    float disc = b * b - c/**a*/; /* discriminant of quadratic formula */
 
-    if (t0 < 0) {
-        t0 = t1; // if t0 is negative, let's use t1 instead
-        if (t0 < 0) return -1.0f; // both t0 and t1 are negative
+    /* solve for t (distance to hitpoint along ray) */
+    float t = -1.0f;
+
+    if (disc < 0.0f) return -1.0f;
+    else t = b - sqrt(disc);
+
+    if (t < 0.0f)
+    {
+        t = b + sqrt(disc);
+        if (t < 0.0f) return -1.0f;
     }
+    return t;
+}
 
+float does_collide_plane(plane p, ray r)
+{
+    float denom = dot(r.dir, p.norm);
+    if (fabs(denom) > 1e-6)
+    {
+        vec3 l = p.pos - r.orig;
+        float t = dot(l, p.norm) / denom;
+        if (t >= 0)
+            return t;
 
-    return t0;
+    }
+    return -1.0;
+}
+
+vec3 reflect(vec3 incidentVec, vec3 normal)
+{
+    return incidentVec - 2.f * dot(incidentVec, normal) * normal;
 }
 
 unsigned int get_colour(vec4 col)
@@ -194,71 +230,102 @@ vec4 get_from_colour_signed(unsigned int raw)
 
 }
 
-/*
-__kernel void magenta_test(
-    __global unsigned int* out_tex,
-    __global float* spheres,
-    const unsigned int width,
-    const unsigned int height)
+
+#define TEMP_FAR_PLANE 100000000
+
+collision_result collide(ray r,
+                         __global float* spheres,
+                         __global float* planes)
 {
-    int id = get_global_id(0);
-    int x  = id%width;
-    int y  = id/width;
+    collision_result result;
+    result.did_hit = false;
+    result.point = (vec3)(0);
+    result.norm = (vec3)(0);
 
-    //sphere s = get_sphere(spheres); //Get forst sphere
-
-    ray r = generate_ray(x,y, width, height, FOV);
-
-
-    float dist = -1;
+    float dist = TEMP_FAR_PLANE; //far plane
+    unsigned char collision_type = 0;
+    vec3 colour;
     sphere s;
+    plane p;
 
     for(int i = 0; i < SCENE_NUM_SPHERES; i++)
     {
-        //if(i >= count)
-        //    continue;
         sphere current_sphere = get_sphere(spheres, i);
-
         float local_dist = does_collide_sphere(current_sphere, r);
-        if(local_dist==-1.0f)
-            continue;
-
-        if(local_dist<dist || dist == -1.0f)
+        if(local_dist<dist && local_dist!=-1)
         {
             dist = local_dist;
             s = current_sphere;
+            collision_type = TYPE_SPHERE;
+            colour = (vec3)((float)((i+1)*17%3)/3.0f, (float)((i+1)*16%5)/5.0f, (float)((i+1)*13%7)/7.0f);
+        }
+        //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
+    }
+
+    for(int i = 0; i < SCENE_NUM_PLANES; i++)
+    {
+        plane current_plane = get_plane(planes, i);
+        float local_dist = does_collide_plane(current_plane, r);
+        if(local_dist<dist && local_dist!=-1)
+        {
+            dist = local_dist;
+            p = current_plane;
+            collision_type = TYPE_PLANE;
+            colour = (vec3)(1.0f);
+
         }
 
-        //out_tex[x+y*width] = sphere_light_calc(get_sphere(current_sphere), r);
         //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
     }
 
-    if(dist!=-1)
+    if(dist!=TEMP_FAR_PLANE)
     {
-        vec3 p_hit = r.orig + (r.dir * dist); // O+tD
-        vec3 normal = normalize(p_hit - s.pos);
+        vec3 normal;
+        vec3 point = r.orig + (r.dir * dist);
+        switch(collision_type)
+        {
+        case TYPE_SPHERE:
+        {
+            normal = normalize(point - s.pos);
+        }break;
+        case TYPE_PLANE:
+        {
+            normal = p.norm;
 
-        vec3 light_pos = (vec3)(2,5,-1);
-        vec3 nspace_light_dir = normalize(light_pos-s.pos);
+        }break;
+        }
 
-        float test_lighting = clamp((float)dot(normal, nspace_light_dir), 0.0f, 1.0f);
-        //out_tex[x+y*width] = getColour( (vec4)(0.8,0.3,dist/10,0));
-        out_tex[x+y*width] = get_colour( (vec4)(test_lighting));
+        result.did_hit = true;
+        result.point = point;
+        result.norm = normal;
+        result.colour = colour;
     }
-    else
-    {
-        out_tex[x+y*width] = get_colour( (vec4)(0.2,0.8,0.5,0));
-        //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
-    }
-}*/
 
-__kernel void cast_ray_test(
+    return result;
+
+}
+
+vec4 shade(collision_result result) //NOTE: Temp shitty phong
+{
+
+    const vec3 light_pos = (vec3)(2,5,-1);
+    vec3 nspace_light_dir = normalize(light_pos-result.point);
+    vec4 test_lighting = (vec4) (clamp((float)dot(result.norm, nspace_light_dir), 0.0f, 1.0f));
+    test_lighting *= (vec4)(result.colour, 1.0f);
+    return test_lighting;
+}
+
+
+#define REFLECTIVITY 0.4f;
+__kernel void cast_ray_test( //TODO: optimize global memory access.
     __global unsigned int* out_tex,
     __global float* ray_buffer,
     __global float* spheres,
+    __global float* planes,
     const unsigned int width,
     const unsigned int height)
 {
+    //return;
     int id = get_global_id(0);
     int x  = id%width;
     int y  = id/width;
@@ -276,42 +343,50 @@ __kernel void cast_ray_test(
 
     //out_tex[x+y*width] = get_colour_signed((vec4)(r.dir,0));
     //out_tex[x+y*width] = get_colour_signed((vec4)(1,1,0,0));
+    collision_result result = collide(r, spheres, planes);
+    vec4 colour = shade(result);
 
-    //return;
-    float dist = -1;
-    sphere s;
+    ray secondary_ray;
+    secondary_ray.orig = result.point + result.norm * 0.0001f; //NOTE: BIAS
+    secondary_ray.dir  = reflect(r.dir, result.norm);//reflect(r.dir, result.norm);
+    collision_result result2 = collide(secondary_ray, spheres, planes);
+    vec4 reflected_colour = shade(result2);
 
-    for(int i = 0; i < SCENE_NUM_SPHERES; i++)
+
+    ray secondary_ray2;
+    secondary_ray2.orig = result2.point + result2.norm * 0.0001f; //NOTE: BIAS
+    secondary_ray2.dir  = reflect(secondary_ray.dir, result2.norm);//reflect(r.dir, result.norm);
+    collision_result result22 = collide(secondary_ray2, spheres, planes);
+    vec4 reflected_colour2 = shade(result22);
+
+    ray secondary_ray22;
+    secondary_ray22.orig = result22.point + result22.norm * 0.0001f; //NOTE: BIAS
+    secondary_ray22.dir  = reflect(secondary_ray2.dir, result22.norm);//reflect(r.dir, result.norm);
+    collision_result result222 = collide(secondary_ray22, spheres, planes);
+    vec4 reflected_colour22 = shade(result222);
+    colour *= 1-REFLECTIVITY;
+    reflected_colour *= 1-REFLECTIVITY;
+    reflected_colour2 *= 1-REFLECTIVITY;
+    reflected_colour22 *= 1-REFLECTIVITY;
+
+    if(result222.did_hit)
     {
-        //if(i >= count)
-        //    continue;
-        sphere current_sphere = get_sphere(spheres, i);
-
-        float local_dist = does_collide_sphere(current_sphere, r);
-        if(local_dist==-1.0f)
-            continue;
-
-        if(local_dist<dist || dist == -1.0f)
-        {
-            dist = local_dist;
-            s = current_sphere;
-        }
-
-        //out_tex[x+y*width] = sphere_light_calc(get_sphere(current_sphere), r);
-        //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
+        reflected_colour2 += reflected_colour22*REFLECTIVITY;
+    }
+    if(result22.did_hit)
+    {
+        reflected_colour += reflected_colour2*REFLECTIVITY;
     }
 
-    if(dist!=-1)
+    if(result2.did_hit)
     {
-        vec3 p_hit = r.orig + (r.dir * dist); // O+tD
-        vec3 normal = normalize(p_hit - s.pos);
+        colour += reflected_colour*REFLECTIVITY;
+    }
 
-        vec3 light_pos = (vec3)(2,5,-1);
-        vec3 nspace_light_dir = normalize(light_pos-s.pos);
-
-        float test_lighting = clamp((float)dot(normal, nspace_light_dir), 0.0f, 1.0f);
-        //out_tex[x+y*width] = getColour( (vec4)(0.8,0.3,dist/10,0));
-        out_tex[x+y*width] = get_colour( (vec4)(test_lighting));
+    //out_tex[x+y*width] = getColour( (vec4)(0.8,0.3,dist/10,0));
+    if(result.did_hit)
+    {
+        out_tex[x+y*width] = get_colour( colour );
     }
     else
     {

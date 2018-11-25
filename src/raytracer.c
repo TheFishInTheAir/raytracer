@@ -7,7 +7,7 @@ raytracer_context* raytracer_init(unsigned int width, unsigned int height,
     raytracer_context* rctx = (raytracer_context*) malloc(sizeof(raytracer_context));
     rctx->width  = width;
     rctx->height = height;
-    rctx->ray_buffer = (uint32_t*) malloc(width * height * sizeof(float)*3);
+    rctx->ray_buffer = (float*) malloc(width * height * sizeof(float)*3);
     rctx->output_buffer = output_buffer;
     rctx->rcl = rcl;
     rctx->program = (rcl_program*) malloc(sizeof(rcl_program));
@@ -30,14 +30,16 @@ void raytracer_cl_prepass(raytracer_context* rctx)
     //Macros
     char sphere_macro[64];
     sprintf(sphere_macro, "#define SCENE_NUM_SPHERES %i", rctx->stat_scene->num_spheres);
-    char* macros[]  = {sphere_macro};
+    char plane_macro[64];
+    sprintf(plane_macro, "#define SCENE_NUM_PLANES %i", rctx->stat_scene->num_planes);
+    char* macros[]  = {sphere_macro, plane_macro};
     printf("test2\n");
 
     //NOTE: Temp hardcoded URL
     load_program_url(rctx->rcl,
                      "C:\\Users\\Ethan Breit\\AppData\\Roaming\\Emacs\\Western\\10\\Science\\Raytracer\\src\\kernels\\test.cl",
                      kernels, 2, rctx->program,
-                     macros, 1);
+                     macros, 2);
     printf("test2.5\n");
 
     printf("test3\n");
@@ -64,6 +66,15 @@ void raytracer_cl_prepass(raytracer_context* rctx)
     if(err!=CL_SUCCESS)
     {
         printf("Error Creating OpenCL Scene Sphere Buffer.\n");
+        exit(1);
+    }
+
+    rctx->cl_plane_buffer = clCreateBuffer(rctx->rcl->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                            sizeof(float)*6*rctx->stat_scene->num_planes,
+                                            rctx->stat_scene->planes, &err);
+    if(err!=CL_SUCCESS)
+    {
+        printf("Error Creating OpenCL Scene Plane Buffer.\n");
         exit(1);
     }
     //TODO: add sphere buffer (also buffers for the rest of the primitives)
@@ -124,8 +135,8 @@ void _raytracer_gen_ray_buffer(raytracer_context* rctx)
     clFinish(rctx->rcl->commands);
 
     //Read Data from opencl ray buffer to our ray buffer
-    err = clEnqueueReadBuffer(rctx->rcl->commands, rctx->cl_ray_buffer, CL_TRUE, 0,
-                              rctx->width*rctx->height*sizeof(float)*3, rctx->ray_buffer, 0, NULL, NULL );
+    //r = clEnqueueReadBuffer(rctx->rcl->commands, rctx->cl_ray_buffer, CL_TRUE, 0,
+    //                        rctx->width*rctx->height*sizeof(float)*3, rctx->ray_buffer, 0, NULL, NULL );
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to read output array! %d\n", err);
@@ -149,6 +160,16 @@ void _raytracer_cast_rays(raytracer_context* rctx) //TODO: do more path tracing 
                             NULL,
                             NULL);
     clEnqueueWriteBuffer (	rctx->rcl->commands,
+                            rctx->cl_plane_buffer, //TODO: make
+                            CL_TRUE,
+                            0,
+                            sizeof(float)*6*rctx->stat_scene->num_planes, //TODO: get from scene
+                            rctx->stat_scene->planes,
+                            0,
+                            NULL,
+                            NULL);
+
+/*  clEnqueueWriteBuffer (	rctx->rcl->commands,
                             rctx->cl_ray_buffer, //TODO: make
                             CL_TRUE,
                             0,
@@ -156,7 +177,7 @@ void _raytracer_cast_rays(raytracer_context* rctx) //TODO: do more path tracing 
                             rctx->ray_buffer,
                             0,
                             NULL,
-                            NULL);
+                            NULL);*/
 
 
 
@@ -165,8 +186,9 @@ void _raytracer_cast_rays(raytracer_context* rctx) //TODO: do more path tracing 
     clSetKernelArg(kernel, 0, sizeof(cl_mem), &rctx->cl_output_buffer);
     clSetKernelArg(kernel, 1, sizeof(cl_mem), &rctx->cl_ray_buffer);
     clSetKernelArg(kernel, 2, sizeof(cl_mem), &rctx->cl_sphere_buffer);
-    clSetKernelArg(kernel, 3, sizeof(unsigned int), &rctx->width);
-    clSetKernelArg(kernel, 4, sizeof(unsigned int), &rctx->height);
+    clSetKernelArg(kernel, 3, sizeof(cl_mem), &rctx->cl_plane_buffer);
+    clSetKernelArg(kernel, 4, sizeof(unsigned int), &rctx->width);
+    clSetKernelArg(kernel, 5, sizeof(unsigned int), &rctx->height);
 
 
     size_t global;

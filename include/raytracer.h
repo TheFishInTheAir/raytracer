@@ -24,6 +24,8 @@ typedef struct
 
     //Scene Buffers
     cl_mem cl_sphere_buffer;
+    cl_mem cl_plane_buffer;
+
 
 
     //TODO: add stuff

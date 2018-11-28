@@ -1,0 +1,13 @@
+#+TITLE: Raytracer Resources
+#+AUTHOR: Ethan Breit
+
+* Resources
+- http://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
+- http://flexmonkey.blogspot.com/2016/05/a-core-image-transverse-chromatic.html
+- https://www.scratchapixel.com
+- https://viscomp.alexandra.dk/?p=278
+- http://www-sop.inria.fr/members/Stefan.Popov/media/StacklessKDTreeTraversal_EG07.pdf
+- https://www.openu.ac.il/lists/mediaserver_documents/academic/cs/Sizov_Timur.pdf
+- http://raytracey.blogspot.com/2016/09/gpu-path-tracing-tutorial-4-optimised.html
+- https://thebookofshaders.com/
+- 

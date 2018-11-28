@@ -3,6 +3,7 @@
 #include <startup.h>
 #include <stdio.h>
 #include <raytracer.h>
+
 #define WIN32 //BECAUSE CL IS FUCKING GAY
 
 #ifdef WIN32
@@ -20,6 +21,10 @@
 
 #define STRFY(x) #x
 #define DBL_STRFY(x) STRFY(x)
+
+
+
+
 
 os_abs abst;
 
@@ -91,16 +96,12 @@ void loop_pause()
 
 void run(void* unnused_rn)
 {
-	OutputDebugStringA("Starded Render Thread\n");
-
-	OutputDebugStringA("Meme? (y/n)\n");
 
     char isMeme = 'y';
     //scanf("%c", &isMeme);
 
     if(isMeme=='y')
     {
-		OutputDebugStringA("YALL ARE MEMERS\n");
         const int width = os_get_width(abst);
         const int height = os_get_height(abst);
 
@@ -134,8 +135,43 @@ void run(void* unnused_rn)
         rscene->num_planes = NUM_PLANES;
         rscene->planes = (plane*) malloc(sizeof(plane)*NUM_PLANES);
         rctx->stat_scene = rscene;
+        rscene->num_materials = 3;
+        rscene->materials = (material*) malloc(sizeof(material)*rscene->num_materials);
+
+        rscene->materials_changed = true;
+        rscene->spheres_changed = true;
+        rscene->planes_changed = true;
+
+
+        material m1;
+        xv_x(m1.colour) = 0.3f;
+        xv_y(m1.colour) = 0.5f;
+        xv_z(m1.colour) = 0.7f;
+        m1.reflectivity = 0.2f;
+
+
+        material m2;
+        xv_x(m2.colour) = 0.6f;
+        xv_y(m2.colour) = 0.2f;
+        xv_z(m2.colour) = 0.7f;
+        m2.reflectivity = 0.2f;
+
+        material m3;
+        xv_x(m3.colour) = 1.f;
+        xv_y(m3.colour) = 1.f;
+        xv_z(m3.colour) = 1.f;
+        m3.reflectivity = 1.f;
+
+        rscene->materials[0] = m1;
+        rscene->materials[1] = m2;
+        rscene->materials[2] = m3;
 
         raytracer_prepass(rctx);
+
+
+        int _timer_store = 0;
+        int _timer_counter = 0;
+        float _timer_average = 0.0f;
         while(should_run)
         {
             if(should_pause)
@@ -167,33 +203,43 @@ void run(void* unnused_rn)
             xv_x(p.norm) = 0.0f;
             xv_y(p.norm) = 1.0f;
             xv_z(p.norm) = 0.0f;
-
+            p.material_index = 2;
 
             sphere s;
             xv_x(s.pos) = 0.0f;
             xv_y(s.pos) = 0.0f;
             xv_z(s.pos) = dist;
             s.radius = 1.0f;
+            s.material_index = 0;
+
             sphere s2;
             xv_x(s2.pos) = (dist*2)+10;
             xv_y(s2.pos) = 0.0f;
             xv_z(s2.pos) = -10.0f;
             s2.radius = 0.6f;
+            s2.material_index = 1;
+
             sphere s3;
             xv_x(s3.pos) = sin(dist/7)*8;
             xv_y(s3.pos) = cos(dist/7)*8;
             xv_z(s3.pos) = -11.0f;
             s3.radius    = 0.5f;
+            s3.material_index = 1;
+
             sphere s4;
             xv_x(s4.pos) = sin(dist/3+1)*3;
             xv_y(s4.pos) = cos(dist/3+1)*3;
             xv_z(s4.pos) = -11.0f;
             s4.radius    = 0.5f;
+            s4.material_index = 0;
+
             sphere s5;
             xv_x(s5.pos) = sin(dist/5+2)*5;
             xv_y(s5.pos) = cos(dist/5+2)*5;
             xv_z(s5.pos) = -11.0f;
             s5.radius    = 0.5f;
+            s5.material_index = 1;
+
 
 
 
@@ -217,14 +263,25 @@ void run(void* unnused_rn)
             rscene->spheres[4] = s5;
             rscene->planes[0]  = p;
 
+            rscene->spheres_changed = true;
+            rscene->planes_changed = true;
 
             //NOTE: has test hardcoded url.
 
             raytracer_render(rctx);
             /*test_sphere_raytracer(&ctx, &program, spheres, NUM_SPHERES,
               row, width, height);*/
-            printf("frame took: %i ms\n", os_get_time_mili(abst)-last_time);
+            int mili = os_get_time_mili(abst)-last_time;
+            _timer_store += mili;
+            _timer_counter++;
+            printf("\rFrame took: %02i ms, average per 100 frames: %0.2f", mili, _timer_average);
 
+            if(_timer_counter>100)
+            {
+                _timer_counter = 0;
+                _timer_average = (float)(_timer_store)/100.f;
+                _timer_store = 0;
+            }
             os_update(abst);
         }
 

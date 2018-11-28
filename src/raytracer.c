@@ -1,5 +1,11 @@
 #include <raytracer.h>
 #include <parallel.h>
+
+
+//binary resources
+#include <test.cl.h> //test kernel
+
+
 //NOTE: we are assuming the output buffer will be the right size
 raytracer_context* raytracer_init(unsigned int width, unsigned int height,
                                       uint32_t* output_buffer, rcl_ctx* rcl)
@@ -26,57 +32,39 @@ void raytracer_cl_prepass(raytracer_context* rctx)
     char* kernels[] = {"cast_ray_test", "generate_rays"};
     rctx->ray_cast_kernel_index   = 0;
     rctx->ray_buffer_kernel_index = 1;
-    printf("test1\n");
+
     //Macros
     char sphere_macro[64];
     sprintf(sphere_macro, "#define SCENE_NUM_SPHERES %i", rctx->stat_scene->num_spheres);
     char plane_macro[64];
     sprintf(plane_macro, "#define SCENE_NUM_PLANES %i", rctx->stat_scene->num_planes);
-    char* macros[]  = {sphere_macro, plane_macro};
-    printf("test2\n");
+    char material_macro[64];
+    sprintf(material_macro, "#define SCENE_NUM_MATERIALS %i", rctx->stat_scene->num_materials);
+    char* macros[]  = {sphere_macro, plane_macro, material_macro};
 
-    //NOTE: Temp hardcoded URL
-    load_program_url(rctx->rcl,
-                     "C:\\Users\\Ethan Breit\\AppData\\Roaming\\Emacs\\Western\\10\\Science\\Raytracer\\src\\kernels\\test.cl",
+    load_program_raw(rctx->rcl,
+                     ___src_kernels_test_cl, //NOTE: Binary resource
                      kernels, 2, rctx->program,
-                     macros, 2);
-    printf("test2.5\n");
-
-    printf("test3\n");
+                     macros, 3);
 
     //Buffers
     rctx->cl_ray_buffer = clCreateBuffer(rctx->rcl->context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
                                          rctx->width*rctx->height*sizeof(float)*3, rctx->ray_buffer, &err);
     if(err!=CL_SUCCESS)
     {
-        printf("Error Creating OpenCL Ray Buffer.\n");
+        printf("Error Creating OpenCL Ray Buffer. %i\n", err);
         exit(1);
     }
     rctx->cl_output_buffer = clCreateBuffer(rctx->rcl->context, CL_MEM_WRITE_ONLY,
                                             rctx->width*rctx->height*4, NULL, &err);
     if(err!=CL_SUCCESS)
     {
-        printf("Error Creating OpenCL Output Buffer.\n");
-        exit(1);
-    }
-    //Scene Buffers
-    rctx->cl_sphere_buffer = clCreateBuffer(rctx->rcl->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                            sizeof(float)*4*rctx->stat_scene->num_spheres,
-                                            rctx->stat_scene->spheres, &err);
-    if(err!=CL_SUCCESS)
-    {
-        printf("Error Creating OpenCL Scene Sphere Buffer.\n");
+        printf("Error Creating OpenCL Output Buffer. %i\n", err);
         exit(1);
     }
 
-    rctx->cl_plane_buffer = clCreateBuffer(rctx->rcl->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                            sizeof(float)*6*rctx->stat_scene->num_planes,
-                                            rctx->stat_scene->planes, &err);
-    if(err!=CL_SUCCESS)
-    {
-        printf("Error Creating OpenCL Scene Plane Buffer.\n");
-        exit(1);
-    }
+    scene_init_resources(rctx);
+
     //TODO: add sphere buffer (also buffers for the rest of the primitives)
     printf("Built Scene Kernels.\n");
 }
@@ -150,24 +138,7 @@ void _raytracer_cast_rays(raytracer_context* rctx) //TODO: do more path tracing 
 
 
 
-    clEnqueueWriteBuffer (	rctx->rcl->commands,
-                            rctx->cl_sphere_buffer, //TODO: make
-                            CL_TRUE,
-                            0,
-                            sizeof(float)*4*rctx->stat_scene->num_spheres, //TODO: get from scene
-                            rctx->stat_scene->spheres,
-                            0,
-                            NULL,
-                            NULL);
-    clEnqueueWriteBuffer (	rctx->rcl->commands,
-                            rctx->cl_plane_buffer, //TODO: make
-                            CL_TRUE,
-                            0,
-                            sizeof(float)*6*rctx->stat_scene->num_planes, //TODO: get from scene
-                            rctx->stat_scene->planes,
-                            0,
-                            NULL,
-                            NULL);
+    scene_resource_push(rctx); //Update Scene buffers if necessary.
 
 /*  clEnqueueWriteBuffer (	rctx->rcl->commands,
                             rctx->cl_ray_buffer, //TODO: make
@@ -185,10 +156,11 @@ void _raytracer_cast_rays(raytracer_context* rctx) //TODO: do more path tracing 
 
     clSetKernelArg(kernel, 0, sizeof(cl_mem), &rctx->cl_output_buffer);
     clSetKernelArg(kernel, 1, sizeof(cl_mem), &rctx->cl_ray_buffer);
-    clSetKernelArg(kernel, 2, sizeof(cl_mem), &rctx->cl_sphere_buffer);
-    clSetKernelArg(kernel, 3, sizeof(cl_mem), &rctx->cl_plane_buffer);
-    clSetKernelArg(kernel, 4, sizeof(unsigned int), &rctx->width);
-    clSetKernelArg(kernel, 5, sizeof(unsigned int), &rctx->height);
+    clSetKernelArg(kernel, 2, sizeof(cl_mem), &rctx->stat_scene->cl_material_buffer);
+    clSetKernelArg(kernel, 3, sizeof(cl_mem), &rctx->stat_scene->cl_sphere_buffer);
+    clSetKernelArg(kernel, 4, sizeof(cl_mem), &rctx->stat_scene->cl_plane_buffer);
+    clSetKernelArg(kernel, 5, sizeof(unsigned int), &rctx->width);
+    clSetKernelArg(kernel, 6, sizeof(unsigned int), &rctx->height);
 
 
     size_t global;
@@ -199,7 +171,7 @@ void _raytracer_cast_rays(raytracer_context* rctx) //TODO: do more path tracing 
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to retrieve kernel work group info! %d\n", err);
-        return;
+        exit(1);
     }
 
     // Execute the kernel over the entire range of our 1d input data set
@@ -211,7 +183,7 @@ void _raytracer_cast_rays(raytracer_context* rctx) //TODO: do more path tracing 
     if (err)
     {
         printf("Error: Failed to execute kernel! %i\n",err);
-        return;
+        exit(1);
     }
 
 

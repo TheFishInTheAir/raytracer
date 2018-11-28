@@ -1,11 +1,12 @@
 #pragma once
 #include <stdint.h>
 #include <parallel.h>
-#include <scene.h>
 #include <CL/opencl.h>
+#include <scene.h>
 
-typedef struct
-{
+typedef struct _rt_ctx raytracer_context;
+
+struct _rt_ctx{
     unsigned int width, height;
 
     float* ray_buffer;
@@ -22,14 +23,8 @@ typedef struct
     cl_mem cl_ray_buffer;
     cl_mem cl_output_buffer;
 
-    //Scene Buffers
-    cl_mem cl_sphere_buffer;
-    cl_mem cl_plane_buffer;
-
-
-
     //TODO: add stuff
-} raytracer_context;
+};
 
 raytracer_context* raytracer_init(unsigned int width, unsigned int height,
                                   uint32_t* output_buffer, rcl_ctx* ctx);

@@ -8,6 +8,100 @@
 
 
 
+
+/************/
+/* Material */
+/************/
+typedef struct
+{
+    float reflectivity;
+    vec3 colour;
+} material;
+
+//TODO: refactor var names
+material get_material(__global float* buf, int offset) //NOTE: offset is index (woule be a better name)
+{
+    int real_offset = offset*(4);
+
+    material m;
+
+    m.reflectivity = buf[0 + real_offset];
+    m.colour.x     = buf[1 + real_offset];
+    m.colour.y     = buf[2 + real_offset];
+    m.colour.z     = buf[3 + real_offset];
+
+    return m;
+}
+
+
+
+/**********************/
+/*                    */
+/*     Primitives     */
+/*                    */
+/**********************/
+
+/**********/
+/* Sphere */
+/**********/
+typedef struct
+{
+    vec3 pos;
+    float radius;
+
+    int material_index;
+} sphere;
+sphere get_sphere(__global float* sphere_data, int offset)
+{
+    int real_offset = offset*(5);
+
+
+    sphere s;
+    s.pos.x  = sphere_data[0 + real_offset];
+    s.pos.y  = sphere_data[1 + real_offset];
+    s.pos.z  = sphere_data[2 + real_offset];
+
+    s.radius = sphere_data[3 + real_offset];
+
+    s.material_index = ((__global int*)sphere_data)[4 + real_offset];
+
+    //s.pos.x = 0.0f;
+    //s.pos.y = 0.0f;
+    //s.pos.z = -5.0f;
+    //s.radius = 0.5f;
+    return s;
+}
+
+/*********/
+/* Plane */
+/*********/
+
+typedef struct plane
+{
+    vec3 pos;
+    vec3 norm;
+
+    int material_index;
+} plane;
+plane get_plane(__global float* plane_data, int offset)
+{
+    int real_offset = offset*(7);
+
+    plane p;
+    p.pos.x  = plane_data[0 + real_offset];
+    p.pos.y  = plane_data[1 + real_offset];
+    p.pos.z  = plane_data[2 + real_offset];
+
+    p.norm.x = plane_data[3 + real_offset];
+    p.norm.y = plane_data[4 + real_offset];
+    p.norm.z = plane_data[5 + real_offset];
+
+    p.material_index = ((__global int*)plane_data)[6 + real_offset];
+
+    return p;
+}
+
+
 /*******/
 /* Ray */
 /*******/
@@ -32,66 +126,18 @@ ray generate_ray(int x, int y, int width, int height, float fov)
     return r;
 }
 
+
 //OTHER THING
 typedef struct
 {
     bool did_hit;
     vec3 norm;
     vec3 point;
-    vec3 colour;
+    material mat;
     //TODO: Add material
 } collision_result;
 
-/**********************/
-/*                    */
-/*     Primitives     */
-/*                    */
-/**********************/
 
-/**********/
-/* Sphere */
-/**********/
-typedef struct
-{
-    vec3 pos;
-    float radius;
-} sphere;
-sphere get_sphere(__global float* sphere_data, int offset)
-{
-    sphere s;
-    s.pos.x  = sphere_data[0 + (offset*4)];
-    s.pos.y  = sphere_data[1 + (offset*4)];
-    s.pos.z  = sphere_data[2 + (offset*4)];
-    s.radius = sphere_data[3 + (offset*4)];
-    //s.pos.x = 0.0f;
-    //s.pos.y = 0.0f;
-    //s.pos.z = -5.0f;
-    //s.radius = 0.5f;
-    return s;
-}
-
-/*********/
-/* Plane */
-/*********/
-
-typedef struct plane
-{
-    vec3 pos;
-    vec3 norm;
-} plane;
-plane get_plane(__global float* plane_data, int offset)
-{
-    plane p;
-    p.pos.x  = plane_data[0 + (offset*6)];
-    p.pos.y  = plane_data[1 + (offset*6)];
-    p.pos.z  = plane_data[2 + (offset*6)];
-
-    p.norm.x = plane_data[3 + (offset*6)];
-    p.norm.y = plane_data[4 + (offset*6)];
-    p.norm.z = plane_data[5 + (offset*6)];
-
-    return p;
-}
 /*************/
 /* Collision */
 /*************/
@@ -234,6 +280,7 @@ vec4 get_from_colour_signed(unsigned int raw)
 #define TEMP_FAR_PLANE 100000000
 
 collision_result collide(ray r,
+                         __global float* materials,
                          __global float* spheres,
                          __global float* planes)
 {
@@ -280,6 +327,7 @@ collision_result collide(ray r,
 
     if(dist!=TEMP_FAR_PLANE)
     {
+        int mat_index;
         vec3 normal;
         vec3 point = r.orig + (r.dir * dist);
         switch(collision_type)
@@ -287,18 +335,20 @@ collision_result collide(ray r,
         case TYPE_SPHERE:
         {
             normal = normalize(point - s.pos);
+            mat_index = s.material_index;
         }break;
         case TYPE_PLANE:
         {
             normal = p.norm;
-
+            mat_index = p.material_index;
         }break;
         }
 
         result.did_hit = true;
         result.point = point;
         result.norm = normal;
-        result.colour = colour;
+        result.mat = get_material(materials, mat_index);
+
     }
 
     return result;
@@ -311,7 +361,7 @@ vec4 shade(collision_result result) //NOTE: Temp shitty phong
     const vec3 light_pos = (vec3)(2,5,-1);
     vec3 nspace_light_dir = normalize(light_pos-result.point);
     vec4 test_lighting = (vec4) (clamp((float)dot(result.norm, nspace_light_dir), 0.0f, 1.0f));
-    test_lighting *= (vec4)(result.colour, 1.0f);
+    test_lighting *= (vec4)(result.mat.colour, 1.0f);
     return test_lighting;
 }
 
@@ -319,12 +369,14 @@ vec4 shade(collision_result result) //NOTE: Temp shitty phong
 #define REFLECTIVITY 0.4f;
 __kernel void cast_ray_test( //TODO: optimize global memory access.
     __global unsigned int* out_tex,
-    __global float* ray_buffer,
-    __global float* spheres,
-    __global float* planes,
+    const __global float* ray_buffer,
+    const __global float* material_buffer,
+    const __global float* spheres,
+    const __global float* planes,
     const unsigned int width,
     const unsigned int height)
 {
+    const vec4 sky = (vec4) (0.2, 0.8, 0.5, 0);
     //return;
     int id = get_global_id(0);
     int x  = id%width;
@@ -343,22 +395,21 @@ __kernel void cast_ray_test( //TODO: optimize global memory access.
 
     //out_tex[x+y*width] = get_colour_signed((vec4)(r.dir,0));
     //out_tex[x+y*width] = get_colour_signed((vec4)(1,1,0,0));
-    collision_result result = collide(r, spheres, planes);
+    collision_result result = collide(r, material_buffer, spheres, planes);
     vec4 colour = shade(result);
 
     ray secondary_ray;
     secondary_ray.orig = result.point + result.norm * 0.0001f; //NOTE: BIAS
     secondary_ray.dir  = reflect(r.dir, result.norm);//reflect(r.dir, result.norm);
-    collision_result result2 = collide(secondary_ray, spheres, planes);
+    collision_result result2 = collide(secondary_ray, material_buffer, spheres, planes);
     vec4 reflected_colour = shade(result2);
-
 
     ray secondary_ray2;
     secondary_ray2.orig = result2.point + result2.norm * 0.0001f; //NOTE: BIAS
     secondary_ray2.dir  = reflect(secondary_ray.dir, result2.norm);//reflect(r.dir, result.norm);
-    collision_result result22 = collide(secondary_ray2, spheres, planes);
+    collision_result result22 = collide(secondary_ray2, material_buffer, spheres, planes);
     vec4 reflected_colour2 = shade(result22);
-
+/*
     ray secondary_ray22;
     secondary_ray22.orig = result22.point + result22.norm * 0.0001f; //NOTE: BIAS
     secondary_ray22.dir  = reflect(secondary_ray2.dir, result22.norm);//reflect(r.dir, result.norm);
@@ -372,25 +423,43 @@ __kernel void cast_ray_test( //TODO: optimize global memory access.
     if(result222.did_hit)
     {
         reflected_colour2 += reflected_colour22*REFLECTIVITY;
-    }
+        }*/
+    //if(!result22.did_hit)
+    //    reflected_colour2 = sky;
+
     if(result22.did_hit)
     {
-        reflected_colour += reflected_colour2*REFLECTIVITY;
+        reflected_colour2 = mix(reflected_colour2, (vec4)(0,0,0,0), result22.mat.reflectivity);
     }
+    else
+    {
+        reflected_colour2 = sky;
+    }
+
 
     if(result2.did_hit)
     {
-        colour += reflected_colour*REFLECTIVITY;
+        reflected_colour = mix(reflected_colour, reflected_colour2, result2.mat.reflectivity);
+    }
+    else
+    {
+        reflected_colour = sky;
     }
 
+    //reflected_colour2 = mix(reflected_colour2, (vec4)(0,0,0,0), result22.mat.reflectivity);
+
+    //reflected_colour = mix(reflected_colour, reflected_colour2, result2.mat.reflectivity);
+
+    colour = mix(colour, reflected_colour,  result.mat.reflectivity);
+
     //out_tex[x+y*width] = getColour( (vec4)(0.8,0.3,dist/10,0));
-    if(result.did_hit)
+    if(result.did_hit) //actually doing this is faster then an early exit....
     {
         out_tex[x+y*width] = get_colour( colour );
     }
     else
     {
-        out_tex[x+y*width] = get_colour( (vec4)(0.2,0.8,0.5,0));
+        out_tex[x+y*width] = get_colour( sky );
         //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
     }
     //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.

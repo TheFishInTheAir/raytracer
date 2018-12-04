@@ -5,39 +5,39 @@ struct sphere;
 struct plane;
 typedef struct _rt_ctx raytracer_context; //hallelujah?...
 
-typedef struct
+typedef W_ALIGN(16) struct
 {
-    float reflectivity;
-    vec3  colour;
-    //TODO: add more.
-} material;
+    vec4  colour;
 
-typedef struct
+    float reflectivity;
+
+    //TODO: add more.
+} U_ALIGN(16) material;
+
+/*typedef struct
 {
     vec3 max;
     vec3 min;
 } AABB;
-
-typedef struct
+*/
+typedef W_ALIGN(32) struct
 {
-    int vertex_offset;
-    int num_verticies;
+    mat4 model;
 
-    int normal_offset;
-    int num_normals;
+    vec4 max;
+    vec4 min;
 
     int index_offset;
     int num_indices;
 
-    mat4 model;
-
-    AABB aabb;
-
     int material_index;
-} mesh;
+} U_ALIGN(32) mesh;
 
 typedef struct
 {
+
+    mat4 camera_world_matrix;
+
     //Materials
     material* materials;
     cl_mem cl_material_buffer;
@@ -62,6 +62,8 @@ typedef struct
     unsigned int num_meshes; //NOTE: must be constant.
     bool meshes_changed;
 
+
+    //NOTE: we could store vertices, normals, and texcoords contiguously as 1 buffer.
     vec3* mesh_verts;
     cl_mem cl_mesh_vert_buffer;
     unsigned int num_mesh_verts; //NOTE: must be constant.
@@ -70,7 +72,11 @@ typedef struct
     cl_mem cl_mesh_nrml_buffer;
     unsigned int num_mesh_nrmls; //NOTE: must be constant.
 
-    vec3* mesh_indices;
+    vec2* mesh_texcoords;
+    cl_mem cl_mesh_texcoord_buffer;
+    unsigned int num_mesh_texcoords; //NOTE: must be constant.
+
+    ivec3* mesh_indices;
     cl_mem cl_mesh_index_buffer;
     unsigned int num_mesh_indices; //NOTE: must be constant.
 

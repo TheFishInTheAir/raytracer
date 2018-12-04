@@ -135,7 +135,6 @@ static int until_space(const char *token) {
   while (p[0] != '\0' && p[0] != ' ' && p[0] != '\t' && p[0] != '\r') {
     p++;
   }
-
   return (int)(p - token);
 }
 

@@ -67,7 +67,7 @@ void cl_info()
         free(devices);
 
     }
-
+    printf("\n");
     free(platforms);
     return;
 }
@@ -81,14 +81,14 @@ void create_context(rcl_ctx* ctx)
 
     if (clGetPlatformIDs(0, NULL, &num_of_platforms) != CL_SUCCESS)
     {
-        printf("Unable to get platform_id\n");
-        return;
+        printf("Error: Unable to get platform_id\n");
+        exit(1);
     }
     cl_platform_id *platform_ids = malloc(num_of_platforms*sizeof(cl_platform_id));
     if (clGetPlatformIDs(num_of_platforms, platform_ids, NULL) != CL_SUCCESS)
     {
-        printf("Unable to get platform_id\n");
-        return;
+        printf("Error: Unable to get platform_id\n");
+        exit(1);
     }
     bool found = false;
     for(int i=0; i<num_of_platforms; i++)
@@ -100,8 +100,8 @@ void create_context(rcl_ctx* ctx)
             break;
         }
     if(!found){
-        printf("Unable to get a GPU device_id\n");
-        return;
+        printf("Error: Unable to get a GPU device_id\n");
+        exit(1);
     }
 
 
@@ -111,7 +111,7 @@ void create_context(rcl_ctx* ctx)
     if (!ctx->context)
     {
         printf("Error: Failed to create a compute context!\n");
-        return;
+        exit(1);
     }
 
     // Create a command commands
@@ -137,8 +137,8 @@ void load_program_raw(rcl_ctx* ctx, char* data,
     for(int i = 0; i < num_macros; i++)
     {
         int length = strlen(macros[i]);
-        char* buf  = (char*) malloc(length+strlen(fin_data)+2);
-        sprintf(buf, "%s\n%s", macros[i], fin_data);
+        char* buf  = (char*) malloc(length+strlen(fin_data)+3);
+        sprintf(buf, "%s\n%s\0", macros[i], fin_data);
         free(fin_data);
         fin_data = buf;
     }
@@ -177,18 +177,17 @@ void load_program_raw(rcl_ctx* ctx, char* data,
     {
         // Create the compute kernel in the program we wish to run
         //
-        printf("start 1\n");
+
         program->raw_kernels[i] = clCreateKernel(program->program, kernels[i], &err);
         if (!program->raw_kernels[i] || err != CL_SUCCESS)
         {
             printf("Error: Failed to create compute kernel!\n");
             exit(1);
         }
-        printf("start 2\n");
 
     }
 
-    program->raw_data = data;
+    program->raw_data = fin_data;
 
 }
 

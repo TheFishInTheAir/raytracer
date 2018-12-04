@@ -19,10 +19,23 @@
 #include <win32.c>
 #endif
 
+//TODO: should prob put in a header
+#ifdef WIN32
+#define W_ALIGN(x) __declspec( align (x) )
+#define U_ALIGN(x) /*nothing*/
+#else
+#define W_ALIGN(x) /*nothing*/
+#define U_ALIGN(x) __attribute__ ((aligned (x)));
+#endif
+
+//#define _MEM_DEBUG
+#include <debug.c>
+
 #include <os_abs.c>
 #include <startup.c>
 #include <scene.c>
 #include <geom.c>
+#include <loader.c>
 #include <parallel.c>
 #include <raytracer.c>
 /*

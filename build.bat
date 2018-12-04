@@ -5,7 +5,9 @@ pushd .\build
 
 xxd -i ..\src\kernels\test.cl | sed 's/\([0-9a-f]\)$/\0, 0x00/' > .\test.cl.h
 
-:: NOTE: There is actual wizardry happening here I literally copied these from the Handmade hero forums..
+xcopy /s ..\res .\res /Y
+
+
 :: Implement and get working later (Removes CRT overhead)
 ::cl -Zi -nologo -Gm- -GR- -EHa- -Oi -GS- -Gs9999999 /I..\include /I..\src /I..\libs ..\src\_compiler_sources.c /link /NODEFAULTLIB /SUBSYSTEM:windows -stack:0x100000,0x100000 user32.lib gdi32.lib winmm.lib kernel32.lib
 ::Zi is for debug.

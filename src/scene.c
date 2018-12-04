@@ -69,7 +69,7 @@ void scene_init_resources(raytracer_context* rctx)
     }
     rctx->stat_scene->cl_mesh_index_buffer = clCreateBuffer(rctx->rcl->context,
                                                             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                                            sizeof(int)*rctx->stat_scene->num_mesh_indices,
+                                                            sizeof(int)*rctx->stat_scene->num_mesh_indices*3,
                                                             rctx->stat_scene->mesh_indices, &err);
     if(err!=CL_SUCCESS)
     {

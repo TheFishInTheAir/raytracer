@@ -22,6 +22,18 @@ inline bool solve_quadratic(float *a, float *b, float *c, float *x0, float *x1)
     return true;
 }
 
+float* matvec_mul(mat4 m, vec4 v)
+{
+    float* out_float = (float*)malloc(sizeof(vec4));
+
+    out_float[0] = m[0+0*4]*v[0] + m[0+1*4]*v[1] + m[0+2*4]*v[2] + m[0+3*4]*v[3];
+    out_float[1] = m[1+0*4]*v[0] + m[1+1*4]*v[1] + m[1+2*4]*v[2] + m[1+3*4]*v[3];
+    out_float[2] = m[2+0*4]*v[0] + m[2+1*4]*v[1] + m[2+2*4]*v[2] + m[2+3*4]*v[3];
+    out_float[3] = m[3+0*4]*v[0] + m[3+1*4]*v[1] + m[3+2*4]*v[2] + m[3+3*4]*v[3];
+
+    return out_float;
+}
+
 void swap_float(float *f1, float *f2)
 {
     float temp = *f2;

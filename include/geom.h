@@ -1,10 +1,12 @@
 #pragma once
 #include <stdbool.h>
 
-
-typedef float vec3[3];
+typedef int   ivec3[3];
+typedef float vec2[2];
+typedef float vec3[4]; //Shhhh....
 typedef float vec4[4];
 typedef float mat4[16];
+
 /*******/
 /* Ray */
 /*******/
@@ -20,13 +22,17 @@ typedef struct ray
 /* Sphere */
 /**********/
 
-typedef struct sphere
+//NOTE:  less memory efficient but aligns with opencl
+typedef W_ALIGN(16) struct sphere
 {
-    vec3 pos;
-    float radius;
+    vec4 pos; //GPU stores all vec3s as vec4s in memory so we need the padding.
 
+    float radius;
     int material_index;
-} sphere;
+
+} U_ALIGN(16) sphere;
+
+
 float does_collide_sphere(sphere, ray);
 
 
@@ -34,13 +40,18 @@ float does_collide_sphere(sphere, ray);
 /* Plane */
 /*********/
 
-typedef struct plane
+typedef W_ALIGN(16) struct plane // bytes
 {
-    vec3 pos;
-    vec3 norm;
+    vec4 pos; //12
+    //float test;
 
+    vec4 norm;
+    //float test2;
+
+//32
     int material_index;
-} plane;
+} U_ALIGN(16) plane;
 float does_collide_plane(plane, ray);
 
 ray generate_ray(int x, int y, int width, int height, float fov);
+float* matvec_mul(mat4 m, vec4 v);

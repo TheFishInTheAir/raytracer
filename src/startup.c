@@ -15,7 +15,7 @@
 #include <math.h>
 #include <geom.h>
 #include <parallel.h>
-
+#include <loader.h>
 #define NUM_SPHERES 5
 #define NUM_PLANES  1
 
@@ -108,72 +108,39 @@ void run(void* unnused_rn)
         const int pitch = width *4;
         uint32_t* row = (uint32_t*)os_get_bitmap_memory(abst);
 
-        /* while(1) */
-        /* { */
-        /*     row = (uint32_t*)win32_get_bitmap_memory(); */
-        /*     cast_rays(width, height, row); */
-
-        /*     win32_update(); */
-
-        /* } */
         cl_info();
 
         rcl_ctx* rcl = (rcl_ctx*) malloc(sizeof(rcl_ctx));
         create_context(rcl);
-        /*char* kernels[] = {"magenta_test"};
-        char* macros[]  = {"#define SCENE_NUM_SPHERES " DBL_STRFY(NUM_SPHERES)};
-        rcl_program program;
-        load_program_url(&ctx,
-                         "C:\\Users\\Ethan Breit\\AppData\\Roaming\\Emacs\\Western\\10\\Science\\Raytracer\\src\\kernels\\test.cl",
-                         kernels, 1, &program,
-                         macros, 1);*/
+
         raytracer_context* rctx = raytracer_init((unsigned int)width, (unsigned int)height,
                                                  row, rcl);
-        scene* rscene = (scene*) malloc(sizeof(scene));
-        rscene->num_spheres = NUM_SPHERES;
-        rscene->spheres = (sphere*) malloc(sizeof(sphere)*NUM_SPHERES);
-        rscene->num_planes = NUM_PLANES;
-        rscene->planes = (plane*) malloc(sizeof(plane)*NUM_PLANES);
+		//scene* rscene = (scene*) malloc(sizeof(scene));
+        scene* rscene = load_scene_json_url("scenes/path_test.rsc");
+
         rctx->stat_scene = rscene;
-        rscene->num_materials = 3;
-        rscene->materials = (material*) malloc(sizeof(material)*rscene->num_materials);
 
-        rscene->materials_changed = true;
-        rscene->spheres_changed = true;
-        rscene->planes_changed = true;
-
-
-        material m1;
-        xv_x(m1.colour) = 0.3f;
-        xv_y(m1.colour) = 0.5f;
-        xv_z(m1.colour) = 0.7f;
-        m1.reflectivity = 0.2f;
-
-
-        material m2;
-        xv_x(m2.colour) = 0.6f;
-        xv_y(m2.colour) = 0.2f;
-        xv_z(m2.colour) = 0.7f;
-        m2.reflectivity = 0.2f;
-
-        material m3;
-        xv_x(m3.colour) = 1.f;
-        xv_y(m3.colour) = 1.f;
-        xv_z(m3.colour) = 1.f;
-        m3.reflectivity = 1.f;
-
-        rscene->materials[0] = m1;
-        rscene->materials[1] = m2;
-        rscene->materials[2] = m3;
 
         raytracer_prepass(rctx);
+
+        xm4_identity(rctx->stat_scene->camera_world_matrix);
+
+        float dist = 0.f;
 
 
         int _timer_store = 0;
         int _timer_counter = 0;
         float _timer_average = 0.0f;
+        printf("Rendering:\n\n");
+
+        /* static float t = 0.0f; */
+        /* t += 0.0005f; */
+        /* dist = sin(t)+1; */
+        /* //mat4 temp; */
+        /* xm4_translatev(rctx->stat_scene->camera_world_matrix, 0, dist, 0); */
         while(should_run)
         {
+
             if(should_pause)
                 continue;
             int last_time = os_get_time_mili(abst);
@@ -193,93 +160,17 @@ void run(void* unnused_rn)
                 }
             }
 
-            static float dist = -5.0f;
-            static bool state = false;
+            raytracer_refined_render(rctx);
 
-            plane p;
-            xv_x(p.pos) = 0.0f;
-            xv_y(p.pos) = -1.0f;
-            xv_z(p.pos) = 0.0f;
-            xv_x(p.norm) = 0.0f;
-            xv_y(p.norm) = 1.0f;
-            xv_z(p.norm) = 0.0f;
-            p.material_index = 2;
-
-            sphere s;
-            xv_x(s.pos) = 0.0f;
-            xv_y(s.pos) = 0.0f;
-            xv_z(s.pos) = dist;
-            s.radius = 1.0f;
-            s.material_index = 0;
-
-            sphere s2;
-            xv_x(s2.pos) = (dist*2)+10;
-            xv_y(s2.pos) = 0.0f;
-            xv_z(s2.pos) = -10.0f;
-            s2.radius = 0.6f;
-            s2.material_index = 1;
-
-            sphere s3;
-            xv_x(s3.pos) = sin(dist/7)*8;
-            xv_y(s3.pos) = cos(dist/7)*8;
-            xv_z(s3.pos) = -11.0f;
-            s3.radius    = 0.5f;
-            s3.material_index = 1;
-
-            sphere s4;
-            xv_x(s4.pos) = sin(dist/3+1)*3;
-            xv_y(s4.pos) = cos(dist/3+1)*3;
-            xv_z(s4.pos) = -11.0f;
-            s4.radius    = 0.5f;
-            s4.material_index = 0;
-
-            sphere s5;
-            xv_x(s5.pos) = sin(dist/5+2)*5;
-            xv_y(s5.pos) = cos(dist/5+2)*5;
-            xv_z(s5.pos) = -11.0f;
-            s5.radius    = 0.5f;
-            s5.material_index = 1;
-
-
-
-
-            if(state)
-            {
-                dist += 0.05f;
-                if(dist>-2.0f)
-                    state = false;
-            }
-            else
-            {
-                dist -= 0.05f;
-                if(dist<-10.0f)
-                    state=true;
-            }
-
-            rscene->spheres[0] = s;
-            rscene->spheres[1] = s2;
-            rscene->spheres[2] = s3;
-            rscene->spheres[3] = s4;
-            rscene->spheres[4] = s5;
-            rscene->planes[0]  = p;
-
-            rscene->spheres_changed = true;
-            rscene->planes_changed = true;
-
-            //NOTE: has test hardcoded url.
-
-            raytracer_render(rctx);
-            /*test_sphere_raytracer(&ctx, &program, spheres, NUM_SPHERES,
-              row, width, height);*/
             int mili = os_get_time_mili(abst)-last_time;
             _timer_store += mili;
             _timer_counter++;
-            printf("\rFrame took: %02i ms, average per 100 frames: %0.2f", mili, _timer_average);
+            printf("\rFrame took: %02i ms, average per 20 frames: %0.2f, avg fps: %03.2f    ", mili, _timer_average, 1000.0f/_timer_average);
 
-            if(_timer_counter>100)
+            if(_timer_counter>20)
             {
                 _timer_counter = 0;
-                _timer_average = (float)(_timer_store)/100.f;
+                _timer_average = (float)(_timer_store)/20.f;
                 _timer_store = 0;
             }
             os_update(abst);

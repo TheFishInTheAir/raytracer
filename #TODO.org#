@@ -1,0 +1,23 @@
+#+AUTHOR: Ethan Breit
+#+TITLE: Todo
+
+* Necessary Features
+1) [X] Win32 Backend
+2) [-] Scene Loading
+   - [X] Primitves
+   - [X] Materials
+   - [X] Meshes
+   - [ ] Lights
+3) [X] Primitve Collision
+4) [X] Mesh Collision
+   - [X] Triangle Intersection (Close to done!) CURRENT
+   - [X] AABB optomization
+5) [ ] Path Tracing!
+   - [ ] Backend (accumulation and distribution)
+   - [ ] Frontend (Lighting Kernel)
+6) [ ] Irradiance Caching!
+   - [ ] Backend
+   - [ ] Frontend (I belive its mostly front end)
+7) [ ] Acceleration Structures (k-d tree)!
+   - [ ] Backend  (construction)
+   - [ ] Frontend (traversal)

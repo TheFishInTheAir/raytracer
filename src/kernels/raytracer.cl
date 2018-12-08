@@ -7,12 +7,3 @@
 
 #define EPSILON 0.0000001f
 
-
-/************/
-/* Material */
-/************/
-typedef struct
-{
-    float reflectivity;
-    vec3 colour;
-} material;  

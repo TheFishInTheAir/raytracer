@@ -5,7 +5,7 @@
         "minor":1,
         "type":"DEV"
     },
-    "name":"test scene",
+    "name":"Path Tracing Test Scene",
 
 
     "materials":
@@ -44,18 +44,6 @@
 
     "meshes":
     [
-        {
-            "url":"mesh/cube.obj",
-            "mat_index": 2,
-            "px":-4,
-            "py":2,
-            "pz":-5,
-            "sx":1,
-            "sy":1,
-            "sz":1,
-
-            "___COMMENT___":"need to add rotation"
-        }
     ],
 
     "primitives":
@@ -64,9 +52,9 @@
         [
             {
                 "x":-0.4,
-                "y":0.1,
-                "z":-3,
-                "radius":0.5,
+                "y":7,
+                "z":-2,
+                "radius":4,
                 "mat_index":1
             },
             {
@@ -97,14 +85,14 @@
                 "mat_index":2
             },
             {
-                "x":14,
-                "y":-1,
-                "z":0,
-                "nx":-0.5,
-                "ny":0.5,
-                "nz":0.2,
+                "x":0,
+                "y":0,
+                "z":-10,
+                "nx":0,
+                "ny":0,
+                "nz":1,
 
-                "mat_index":1
+                "mat_index":2
             }
         ]
     }

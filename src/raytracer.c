@@ -18,7 +18,8 @@ raytracer_context* raytracer_init(unsigned int width, unsigned int height,
     //rctx->fresh_buffer = (uint32_t*) malloc(width * height * sizeof(uint32_t));
     rctx->rcl = rcl;
     rctx->program = (rcl_program*) malloc(sizeof(rcl_program));
-
+    rctx->ic_ctx = (ic_context*) malloc(sizeof(ic_context));
+    ic_init(rctx);
     return rctx;
 }
 
@@ -30,11 +31,7 @@ void raytracer_cl_prepass(raytracer_context* rctx)
     int err = CL_SUCCESS;
 
     //Kernels
-    char* kernels[] = {"cast_ray_test", "generate_rays", "path_trace", "buffer_average"};
-    rctx->ray_cast_kernel_index   = 0;
-    rctx->ray_buffer_kernel_index = 1;
-    rctx->path_trace_kernel_index = 2;
-    rctx->buffer_average_kernel_index = 3;
+    char* kernels[] = KERNELS;
 
     //Macros
     char sphere_macro[64];
@@ -50,8 +47,8 @@ void raytracer_cl_prepass(raytracer_context* rctx)
     {
 
         load_program_raw(rctx->rcl,
-                         ___src_kernels_test_cl, //NOTE: Binary resource
-                         kernels, 4, rctx->program,
+                         all_kernels_cl, //NOTE: Binary resource
+                         kernels, NUM_KERNELS, rctx->program,
                          macros, 4);
     }
     //Buffers
@@ -64,6 +61,15 @@ void raytracer_cl_prepass(raytracer_context* rctx)
         printf("Error Creating OpenCL Ray Buffer. %i\n", err);
         exit(1);
     }
+    rctx->cl_path_output_buffer = clCreateBuffer(rctx->rcl->context,
+                                         CL_MEM_READ_WRITE,
+                                         rctx->width*rctx->height*sizeof(vec4),
+                                         NULL, &err);
+    if(err!=CL_SUCCESS)
+    {
+        printf("Error Creating OpenCL Path output buffer Buffer. %i\n", err);
+        exit(1);
+    }
     rctx->cl_output_buffer = clCreateBuffer(rctx->rcl->context, CL_MEM_READ_WRITE,
                                             rctx->width*rctx->height*4, NULL, &err);
     if(err!=CL_SUCCESS)
@@ -72,19 +78,8 @@ void raytracer_cl_prepass(raytracer_context* rctx)
         exit(1);
     }
 
-    char pattern = 0;
-    err =  clEnqueueFillBuffer (rctx->rcl->commands,
-                                rctx->cl_output_buffer,
-                                &pattern, 1 ,0,
-                                rctx->width*rctx->height*4,
-                                0, NULL, NULL);
-    if(err!=CL_SUCCESS)
-    {
-        printf("Error Zeroeing OpenCL Output Buffer. %i\n", err);
-        exit(1);
-    }
-    rctx->cl_fresh_frame_buffer = clCreateBuffer(rctx->rcl->context, CL_MEM_READ_WRITE,
-                                            rctx->width*rctx->height*4, NULL, &err);
+    rctx->cl_path_fresh_frame_buffer = clCreateBuffer(rctx->rcl->context, CL_MEM_READ_WRITE,
+                                                 rctx->width*rctx->height*sizeof(vec4), NULL, &err);
     if(err!=CL_SUCCESS)
     {
         printf("Error Creating OpenCL Fresh Frame Buffer. %i\n", err);
@@ -94,13 +89,9 @@ void raytracer_cl_prepass(raytracer_context* rctx)
 	printf("Pushing Scene Resources.\n");
 	scene_init_resources(rctx);
 
-    //TODO: add sphere buffer (also buffers for the rest of the primitives)
     printf("Built Scene Kernels.\n");
-
-    //clFinish(rctx->rcl->commands); //Shouldn't be necessary
 }
 
-//NOTE: we need a scene by this point.
 void raytracer_prepass(raytracer_context* rctx)
 {
     printf("Starting Raytracer Prepass.\n");
@@ -112,22 +103,28 @@ void raytracer_prepass(raytracer_context* rctx)
     printf("Finished Raytracer Prepass.\n");
 
 } //TODO: implement
-void raytracer_render(raytracer_context* rctx) //TODO: implement
+void raytracer_render(raytracer_context* rctx)
 {
     _raytracer_gen_ray_buffer(rctx);
 
     _raytracer_cast_rays(rctx);
 }
 
-void raytracer_refined_render(raytracer_context* rctx) //TODO: implement
+#define JANK_SAMPLES 140
+void raytracer_refined_render(raytracer_context* rctx)
 {
     static unsigned int magic = 0;
     magic++;
 
-    if(magic>1)
+    if(magic>JANK_SAMPLES)
         return;
-
     _raytracer_gen_ray_buffer(rctx);
+
+    //ic_screenspace(rctx);
+
+    //return;
+
+
 
     _raytracer_path_trace(rctx, magic);
 
@@ -136,31 +133,32 @@ void raytracer_refined_render(raytracer_context* rctx) //TODO: implement
         int err;
         char pattern = 0;
         err = clEnqueueCopyBuffer (	rctx->rcl->commands,
-                                    rctx->cl_fresh_frame_buffer,
-                                    rctx->cl_output_buffer,
+                                    rctx->cl_path_fresh_frame_buffer,
+                                    rctx->cl_path_output_buffer,
                                     0,
                                     0,
-                                    rctx->width*rctx->height*sizeof(uint32_t),
+                                    rctx->width*rctx->height*sizeof(vec4),
                                     0,
                                     0,
                                     NULL);
         if(err!=CL_SUCCESS)
         {
-            printf("Error Zeroeing OpenCL Output Buffer. %i\n", err);
+            printf("Error Copying OpenCL Output Buffer. %i\n", err);
             exit(1);
         }
         clFinish(rctx->rcl->commands);
     }
 
     _raytracer_average_buffers(rctx, magic);
+    _raytracer_push_path(rctx);
+
 }
 
 void _raytracer_gen_ray_buffer(raytracer_context* rctx)
 {
     int err;
 
-    cl_kernel kernel = rctx->program->raw_kernels[rctx->ray_buffer_kernel_index]; //just use the first one
-
+    cl_kernel kernel = rctx->program->raw_kernels[RAY_BUFFER_KRNL_INDX];
     clSetKernelArg(kernel, 0, sizeof(cl_mem), &rctx->cl_ray_buffer);
     clSetKernelArg(kernel, 1, sizeof(unsigned int), &rctx->width);
     clSetKernelArg(kernel, 2, sizeof(unsigned int), &rctx->height);
@@ -169,16 +167,14 @@ void _raytracer_gen_ray_buffer(raytracer_context* rctx)
 
     size_t global;
     size_t local = 0;
-
     err = clGetKernelWorkGroupInfo(kernel, rctx->rcl->device_id, CL_KERNEL_WORK_GROUP_SIZE,
-                                   sizeof(local), &local, NULL); //NOTE: we don't need to do this every time
+                                   sizeof(local), &local, NULL);
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to retrieve kernel work group info! %d\n", err);
         exit(1);
     }
 
-    // TODO: optimize work groups.
     global =  rctx->width*rctx->height;
     err = clEnqueueNDRangeKernel(rctx->rcl->commands, kernel, 1, NULL, &global, NULL, 0, NULL, NULL);
     if (err != CL_SUCCESS)
@@ -190,60 +186,65 @@ void _raytracer_gen_ray_buffer(raytracer_context* rctx)
     //Wait for completion
     clFinish(rctx->rcl->commands);
 
-    //Read Data from opencl ray buffer to our ray buffer
-    //r = clEnqueueReadBuffer(rctx->rcl->commands, rctx->cl_ray_buffer, CL_TRUE, 0,
-    //                        rctx->width*rctx->height*sizeof(float)*3, rctx->ray_buffer, 0, NULL, NULL );
-    if (err != CL_SUCCESS)
-    {
-        printf("Error: Failed to read output array! %d\n", err);
-        exit(1);
-    }
 }
-void _raytracer_average_buffers(raytracer_context* rctx, int sample_num)
+void _raytracer_average_buffers(raytracer_context* rctx, unsigned int sample_num)
 {
     int err;
-
-    cl_kernel kernel = rctx->program->raw_kernels[rctx->buffer_average_kernel_index]; //just use the first one
-    clSetKernelArg(kernel, 0, sizeof(cl_mem), &rctx->cl_output_buffer);
-    clSetKernelArg(kernel, 1, sizeof(cl_mem), &rctx->cl_fresh_frame_buffer);
+    int samples = JANK_SAMPLES;
+    cl_kernel kernel = rctx->program->raw_kernels[F_BUFFER_AVG_KRNL_INDX];
+    clSetKernelArg(kernel, 0, sizeof(cl_mem), &rctx->cl_path_output_buffer);
+    clSetKernelArg(kernel, 1, sizeof(cl_mem), &rctx->cl_path_fresh_frame_buffer);
     clSetKernelArg(kernel, 2, sizeof(unsigned int), &rctx->width);
     clSetKernelArg(kernel, 3, sizeof(unsigned int), &rctx->height);
-    clSetKernelArg(kernel, 4, sizeof(unsigned int), &sample_num);
+    clSetKernelArg(kernel, 4, sizeof(unsigned int), &samples);
+    clSetKernelArg(kernel, 5, sizeof(unsigned int), &sample_num);
 
-
-    size_t global; //TODO: optimize
-    size_t local = 0;
-
-    err = clGetKernelWorkGroupInfo(kernel, rctx->rcl->device_id, CL_KERNEL_WORK_GROUP_SIZE,
-        sizeof(local), &local, NULL);
-    if (err != CL_SUCCESS)
-    {
-        printf("Error: Failed to retrieve kernel work group info! %d\n", err);
-        exit(1);
-    }
+    size_t global;
+    size_t local = get_workgroup_size(rctx, kernel);
 
     // Execute the kernel over the entire range of our 1d input data set
     // using the maximum number of work group items for this device
     //
-    //printf("STARTING\n");
     global =  rctx->width*rctx->height;
     err = clEnqueueNDRangeKernel(rctx->rcl->commands, kernel, 1, NULL, &global, NULL, 0, NULL, NULL);
-    if (err)
-    {
-        printf("Error: Failed to execute kernel! %i\n",err);
-        exit(1);
-    }
+    ASRT_CL("Failed to execute kernel")
+    err = clFinish(rctx->rcl->commands);
+    ASRT_CL("Something happened while waiting for kernel to finish");
 
 
-    clFinish(rctx->rcl->commands);
+
+}
+
+void _raytracer_push_path(raytracer_context* rctx)
+{
+    int err;
+
+    cl_kernel kernel = rctx->program->raw_kernels[F_BUF_TO_BYTE_BUF_KRNL_INDX];
+    clSetKernelArg(kernel, 0, sizeof(cl_mem), &rctx->cl_output_buffer);
+    clSetKernelArg(kernel, 1, sizeof(cl_mem), &rctx->cl_path_output_buffer);
+    clSetKernelArg(kernel, 2, sizeof(unsigned int), &rctx->width);
+    clSetKernelArg(kernel, 3, sizeof(unsigned int), &rctx->height);
+
+
+
+    size_t global;
+    size_t local = get_workgroup_size(rctx, kernel);
+
+    // Execute the kernel over the entire range of our 1d input data set
+    // using the maximum number of work group items for this device
+    //
+    global =  rctx->width*rctx->height;
+    err = clEnqueueNDRangeKernel(rctx->rcl->commands, kernel, 1, NULL, &global, NULL, 0, NULL, NULL);
+    ASRT_CL("Failed to execute kernel");
+
+
+    err = clFinish(rctx->rcl->commands);
+    ASRT_CL("Something happened while waiting for kernel to finish");
 
     err = clEnqueueReadBuffer(rctx->rcl->commands, rctx->cl_output_buffer, CL_TRUE, 0,
                               rctx->width*rctx->height*sizeof(int), rctx->output_buffer, 0, NULL, NULL );
-    if (err != CL_SUCCESS)
-    {
-        printf("Error: Failed to read output array! %d\n", err);
-        exit(1);
-    }
+    ASRT_CL("Failed to read output array");
+
 }
 
 
@@ -253,12 +254,12 @@ void _raytracer_path_trace(raytracer_context* rctx, unsigned int sample_num) //T
 
     //scene_resource_push(rctx); //Update Scene buffers if necessary.
 
-    cl_kernel kernel = rctx->program->raw_kernels[rctx->path_trace_kernel_index]; //just use the first one
+    cl_kernel kernel = rctx->program->raw_kernels[PATH_TRACE_KRNL_INDX]; //just use the first one
 
     float zeroed[] = {0., 0., 0., 1.};
     float* result = matvec_mul(rctx->stat_scene->camera_world_matrix, zeroed);
 
-    clSetKernelArg(kernel, 0, sizeof(cl_mem), &rctx->cl_fresh_frame_buffer);
+    clSetKernelArg(kernel, 0, sizeof(cl_mem), &rctx->cl_path_fresh_frame_buffer);
     clSetKernelArg(kernel, 1, sizeof(cl_mem), &rctx->cl_ray_buffer);
     clSetKernelArg(kernel, 2, sizeof(cl_mem), &rctx->stat_scene->cl_material_buffer);
     clSetKernelArg(kernel, 3, sizeof(cl_mem), &rctx->stat_scene->cl_sphere_buffer);
@@ -268,24 +269,22 @@ void _raytracer_path_trace(raytracer_context* rctx, unsigned int sample_num) //T
     clSetKernelArg(kernel, 7, sizeof(cl_mem), &rctx->stat_scene->cl_mesh_vert_buffer);
     clSetKernelArg(kernel, 8, sizeof(cl_mem), &rctx->stat_scene->cl_mesh_nrml_buffer);
 
-    clSetKernelArg(kernel, 9, sizeof(unsigned int), &rctx->width);
-    clSetKernelArg(kernel, 10, sizeof(unsigned int), &rctx->height);
-    clSetKernelArg(kernel, 11, sizeof(float)*4, result); //we only need 3
-    clSetKernelArg(kernel, 12, sizeof(int), &sample_num); //we only need 3
+    clSetKernelArg(kernel, 9,  sizeof(int),     &rctx->width);
+    clSetKernelArg(kernel, 10, sizeof(int),     &rctx->height);
+    clSetKernelArg(kernel, 11, sizeof(vec4),    result);
+    clSetKernelArg(kernel, 12, sizeof(int),     &sample_num); //NOTE: I don't think this is used
 
     //free(result);
 
     size_t global; //TODO: optimize
     size_t local = 0;
-
     err = clGetKernelWorkGroupInfo(kernel, rctx->rcl->device_id, CL_KERNEL_WORK_GROUP_SIZE,
-        sizeof(local), &local, NULL);
+                                   sizeof(local), &local, NULL); //NOTE: we don't need to do this every time
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to retrieve kernel work group info! %d\n", err);
         exit(1);
     }
-
     // Execute the kernel over the entire range of our 1d input data set
     // using the maximum number of work group items for this device
     //
@@ -316,7 +315,7 @@ void _raytracer_cast_rays(raytracer_context* rctx) //TODO: do more path tracing 
     scene_resource_push(rctx); //Update Scene buffers if necessary.
 
 
-    cl_kernel kernel = rctx->program->raw_kernels[rctx->ray_cast_kernel_index]; //just use the first one
+    cl_kernel kernel = rctx->program->raw_kernels[RAY_CAST_KRNL_INDX]; //just use the first one
 
     float zeroed[] = {0., 0., 0., 1.};
     float* result = matvec_mul(rctx->stat_scene->camera_world_matrix, zeroed);
@@ -337,15 +336,13 @@ void _raytracer_cast_rays(raytracer_context* rctx) //TODO: do more path tracing 
 
     size_t global;
     size_t local = 0;
-
     err = clGetKernelWorkGroupInfo(kernel, rctx->rcl->device_id, CL_KERNEL_WORK_GROUP_SIZE,
-        sizeof(local), &local, NULL);
+                                   sizeof(local), &local, NULL); //NOTE: we don't need to do this every time
     if (err != CL_SUCCESS)
     {
         printf("Error: Failed to retrieve kernel work group info! %d\n", err);
         exit(1);
     }
-
     // Execute the kernel over the entire range of our 1d input data set
     // using the maximum number of work group items for this device
     //

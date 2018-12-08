@@ -1,6 +1,7 @@
 #pragma once
 #include <CL/opencl.h>
 #include <geom.h>
+typedef struct _rt_ctx raytracer_context;
 
 typedef struct
 {
@@ -28,3 +29,16 @@ void load_program_url(rcl_ctx* ctx, char* url,  char** kernels, unsigned int num
 void test_sphere_raytracer(rcl_ctx* ctx, rcl_program* program,
                            sphere* spheres, int num_spheres,
                            uint32_t* bitmap, int width, int height);
+cl_mem gen_rgb_image(raytracer_context* rctx,
+                     const unsigned int width,
+                     const unsigned int height);
+cl_mem gen_grayscale_buffer(raytracer_context* rctx,
+                            const unsigned int width,
+                            const unsigned int height);
+void retrieve_buf(raytracer_context* rctx, cl_mem g_buf, void* c_buf, size_t);
+
+void zero_buffer_img(raytracer_context* rctx, cl_mem buf, size_t element,
+                 const unsigned int width,
+                 const unsigned int height);
+void zero_buffer(raytracer_context* rctx, cl_mem buf, size_t size);
+size_t get_workgroup_size(raytracer_context* rctx, cl_kernel kernel);

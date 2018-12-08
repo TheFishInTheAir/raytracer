@@ -42,6 +42,7 @@ void scene_init_resources(raytracer_context* rctx)
     //Mesh
     rctx->stat_scene->cl_mesh_buffer = clCreateBuffer(rctx->rcl->context,
                                                       CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                                      rctx->stat_scene->num_meshes==0 ? 1 :
                                                       sizeof(mesh)*rctx->stat_scene->num_meshes,
                                                       rctx->stat_scene->meshes, &err);
     if(err!=CL_SUCCESS)
@@ -51,7 +52,8 @@ void scene_init_resources(raytracer_context* rctx)
     }
     rctx->stat_scene->cl_mesh_vert_buffer = clCreateBuffer(rctx->rcl->context,
                                                            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                                          sizeof(vec3)*rctx->stat_scene->num_mesh_verts,
+                                                           rctx->stat_scene->num_mesh_verts==0 ? 1 :
+                                                           sizeof(vec3)*rctx->stat_scene->num_mesh_verts,
                                                           rctx->stat_scene->mesh_verts, &err);
     if(err!=CL_SUCCESS)
     {
@@ -60,6 +62,7 @@ void scene_init_resources(raytracer_context* rctx)
     }
     rctx->stat_scene->cl_mesh_nrml_buffer = clCreateBuffer(rctx->rcl->context,
                                                            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                                           rctx->stat_scene->num_mesh_nrmls==0 ? 1 :
                                                            sizeof(vec3)*rctx->stat_scene->num_mesh_nrmls,
                                                            rctx->stat_scene->mesh_nrmls, &err);
     if(err!=CL_SUCCESS)
@@ -69,7 +72,9 @@ void scene_init_resources(raytracer_context* rctx)
     }
     rctx->stat_scene->cl_mesh_index_buffer = clCreateBuffer(rctx->rcl->context,
                                                             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                                            sizeof(int)*rctx->stat_scene->num_mesh_indices*3,
+                                                            rctx->stat_scene->num_mesh_indices==0 ? 1 :
+                                                            sizeof(int)*
+                                                            rctx->stat_scene->num_mesh_indices*3,
                                                             rctx->stat_scene->mesh_indices, &err);
     if(err!=CL_SUCCESS)
     {

@@ -59,7 +59,7 @@ char* _get_os_pid_bin_path()
 }
 #endif
 
-char* load_file(char* url, long *ret_length)
+char* load_file(const char* url, long *ret_length)
 {
     char real_url[260];
     sprintf(real_url, "%s%cres%c%s", _get_os_pid_bin_path(), FILE_SEP, FILE_SEP, url);
@@ -232,7 +232,7 @@ scene* load_scene_json(char* json)
 
     //Name
     {
-        char* name = json_object_get_string(root_object, "name");
+        const char* name = json_object_get_string(root_object, "name");
         printf("Scene name: %s\n", name);
     }
 
@@ -240,7 +240,7 @@ scene* load_scene_json(char* json)
     {//TODO: do something with this.
         int major  = (int)json_object_dotget_number(root_object, "version.major");
         int minor  = (int)json_object_dotget_number(root_object, "version.major");
-        char* type =      json_object_dotget_string(root_object, "version.type");
+        const char* type =      json_object_dotget_string(root_object, "version.type");
     }
 
     //Materials
@@ -331,7 +331,7 @@ scene* load_scene_json(char* json)
         for(int i = 0; i < num_meshes; i++)
         {
             JSON_Object* mesh = json_array_get_object(mesh_array, i);
-            char* url = json_object_get_string(mesh, "url");
+            const char* url = json_object_get_string(mesh, "url");
             long length;
             char* data = load_file(url, &length);
             obj_pre_load(data, length, current, &out_scene->num_meshes, &out_scene->num_mesh_indices,
@@ -386,7 +386,7 @@ scene* load_scene_json(char* json)
 
 
         current = first;
-        while(current != NULL)
+        while(current != NULL && num_meshes)
         {
 
             load_obj(*current, &mesh_offset, &vert_offset, &nrml_offset, &texcoord_offset,

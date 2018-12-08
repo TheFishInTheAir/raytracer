@@ -10,4 +10,16 @@
 - https://www.openu.ac.il/lists/mediaserver_documents/academic/cs/Sizov_Timur.pdf
 - http://raytracey.blogspot.com/2016/09/gpu-path-tracing-tutorial-4-optimised.html
 - https://thebookofshaders.com/
-- 
+- http://www.rorydriscoll.com/2009/01/07/better-sampling/
+- https://pdfs.semanticscholar.org/65e2/d741c18741041a4a854a38c3584eb196059e.pdf
+- http://www.pbr-book.org/
+- http://public.beuth-hochschule.de/~godberse/wiese/cga1/08_3Dglobal/sw/radiosity/radiosity_all.htm
+- https://courses.cs.washington.edu/courses/cse557/17au/assets/lectures/aa-and-mcpt-4pp.pdf
+- https://developer.nvidia.com/gpugems/GPUGems2/gpugems2_chapter37.html
+- https://cgg.mff.cuni.cz/~jaroslav/papers/2008-irradiance_caching_class/03-greg-ic.pdf
+- http://the-witness.net/news/2011/07/irradiance-caching-part-1/
+- http://www.ludicon.com/castano/blog/2014/07/irradiance-caching-continued/
+
+
+
+

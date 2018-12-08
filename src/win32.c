@@ -271,11 +271,11 @@ void create_win32_window()
     printf("Creating WIN32 Window\n");
 
     ctx->win = CreateWindowEx(
-        WS_EX_CLIENTEDGE,
+        0,
         CLASS_NAME,
         CLASS_NAME,
         /* WS_OVERLAPPEDWINDOW, */
-        (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX),
+        (WS_POPUP| WS_SYSMENU | WS_MAXIMIZEBOX | WS_MINIMIZEBOX),
         CW_USEDEFAULT, CW_USEDEFAULT, 1920, 1080,
         NULL, NULL, ctx->instance, NULL);
 

@@ -12,12 +12,17 @@
 4) [X] Mesh Collision
    - [X] Triangle Intersection
    - [X] AABB optomization
-5) [-] Path Tracing!
-   - [ ] Backend (accumulation and distribution)
-   - [X] Frontend (Lighting Kernel) (DONE TO A DEGREE)
-6) [ ] Irradiance Caching!
-   - [ ] Backend
+5) [X] Path Tracing
+   - [X] Backend (accumulation and distribution)
+   - [X] Frontend (Lighting Kernel)
+6) [-] Irradiance Caching!
+   - [-] Backend
+     - [-] Octree
+       - [X] Data structure
+       - [ ] Insertion
+     - [-] Screenspace
+       - [X] Initial geometry discontinuity map
+       - [ ] Irradiance discontinuity map
    - [ ] Frontend (I belive its mostly front end)
-7) [ ] Acceleration Structures (k-d tree)!
-   - [ ] Backend  (construction)
-   - [ ] Frontend (traversal)
+     - [ ] Octree
+       - [ ] Fast GPU Octree Lookup

@@ -1,5 +1,5 @@
 #include <CL/opencl.h>
-
+#include <raytracer.h>
 //Parallel util.
 
 void cl_info()
@@ -122,8 +122,115 @@ void create_context(rcl_ctx* ctx)
         printf("Error: Failed to create a command commands!\n");
         return;
     }
+    ASRT_CL("Failed to Initialise OpenCL");
+
 
 }
+
+cl_mem gen_rgb_image(raytracer_context* rctx,
+                     const unsigned int width,
+                     const unsigned int height)
+{
+    int err;
+
+    cl_image_desc temp_descriptor = rctx->ic_ctx->cl_standard_descriptor;
+    temp_descriptor.image_width  = width==0  ? rctx->width  : width;
+    temp_descriptor.image_height = height==0 ? rctx->height : height;
+
+    cl_mem img = clCreateImage(rctx->rcl->context,
+                                CL_MEM_READ_WRITE,
+                                &rctx->ic_ctx->cl_standard_format,
+                                &temp_descriptor,
+                                NULL,
+                                &err);
+    ASRT_CL("Couldn't Create OpenCL Texture");
+    return img;
+}
+cl_mem gen_grayscale_buffer(raytracer_context* rctx,
+                            const unsigned int width,
+                            const unsigned int height)
+{
+    int err;
+
+    cl_mem buf = clCreateBuffer(rctx->rcl->context, CL_MEM_READ_WRITE,
+                                 (width==0  ? rctx->width  : width)*
+                                 (height==0 ? rctx->height : height)*
+                                 sizeof(float),
+                                 NULL, &err);
+    ASRT_CL("Couldn't Create OpenCL Float Buffer Image");
+    return buf;
+}
+
+void retrieve_image(raytracer_context* rctx, cl_mem g_buf, void* c_buf,
+                    const unsigned int width,
+                    const unsigned int height)
+{
+    int err;
+    size_t origin[3] = {0,0,0};
+    size_t region[3] = {(width==0 ? rctx->width : width),
+                        (height==0 ? rctx->height : height),
+                        1};
+    err = clEnqueueReadImage (rctx->rcl->commands,
+                              g_buf,
+                              CL_TRUE,
+                              origin,
+                              region,
+                              0,
+                              0,
+                              c_buf,
+                              0,
+                              0,
+                              NULL);
+    ASRT_CL("Failed to retrieve Opencl Image");
+}
+
+void retrieve_buf(raytracer_context* rctx, cl_mem g_buf, void* c_buf, size_t size)
+{
+    int err;
+    err = clEnqueueReadBuffer(rctx->rcl->commands, g_buf, CL_TRUE, 0,
+                              size, c_buf,
+                              0, NULL, NULL );
+    ASRT_CL("Failed to retrieve Opencl Buffer");
+}
+
+void zero_buffer(raytracer_context* rctx, cl_mem buf, size_t size)
+{
+    int err;
+    char pattern = 0;
+    err =  clEnqueueFillBuffer (rctx->rcl->commands,
+                                buf,
+                                &pattern, 1 ,0,
+                                size,
+                                0, NULL, NULL);
+    ASRT_CL("Couldn't Zero OpenCL Buffer");
+}
+void zero_buffer_img(raytracer_context* rctx, cl_mem buf, size_t element,
+                 const unsigned int width,
+                 const unsigned int height)
+{
+    int err;
+
+    char pattern = 0;
+    err =  clEnqueueFillBuffer (rctx->rcl->commands,
+                                buf,
+                                &pattern, 1 ,0,
+                                (width==0  ? rctx->width  : width)*
+                                (height==0 ? rctx->height : height)*
+                                element,
+                                0, NULL, NULL);
+    ASRT_CL("Couldn't Zero OpenCL Buffer");
+}
+size_t get_workgroup_size(raytracer_context* rctx, cl_kernel kernel)
+{
+    int err;
+    size_t local = 0;
+    err = clGetKernelWorkGroupInfo(kernel, rctx->rcl->device_id,
+                                   CL_KERNEL_WORK_GROUP_SIZE,
+                                   sizeof(local), &local, NULL);
+    ASRT_CL("Failed to Retrieve Kernel Work Group Info");
+    return local;
+}
+
 
 void load_program_raw(rcl_ctx* ctx, char* data,
                      char** kernels, unsigned int num_kernels,
@@ -162,7 +269,7 @@ void load_program_raw(rcl_ctx* ctx, char* data,
 
 
         printf("Error: Failed to build program executable!\n");
-        printf("KERNEL:\n %s\nprogram done\n\n", fin_data);
+        printf("KERNEL:\n %s\nprogram done\n", fin_data);
         int n_err = clGetProgramBuildInfo(program->program, ctx->device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
         if(n_err != CL_SUCCESS)
         {
@@ -181,7 +288,7 @@ void load_program_raw(rcl_ctx* ctx, char* data,
         program->raw_kernels[i] = clCreateKernel(program->program, kernels[i], &err);
         if (!program->raw_kernels[i] || err != CL_SUCCESS)
         {
-            printf("Error: Failed to create compute kernel!\n");
+            printf("Error: Failed to create compute kernel! %s\n", kernels[i]);
             exit(1);
         }
 
@@ -204,7 +311,7 @@ void load_program_url(rcl_ctx* ctx, char* url,
         fseek (f, 0, SEEK_END);
         length = ftell (f);
         fseek (f, 0, SEEK_SET);
-        buffer = malloc (length);
+        buffer = malloc (length+2);
         if (buffer)
         {
             fread (buffer, 1, length, f);

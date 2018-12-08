@@ -30,3 +30,21 @@ void _debug_free(void* ptr, int line, const char *func)
 #define memcpy(X, Y, Z) _debug_memcpy( X, Y, Z, __LINE__, __FUNCTION__)
 
 #endif
+
+#ifdef WIN32
+#define _FILE_SEP '\\'
+#else
+#define _FILE_SEP '/'
+#endif
+
+#define __FILENAME__ (strrchr(__FILE__, _FILE_SEP) ? strrchr(__FILE__, _FILE_SEP) + 1 : __FILE__)
+
+
+//TODO: replace all errors with.
+#define ASRT_CL(m)                                                                            \
+    if(err!=CL_SUCCESS)                                                                       \
+    {                                                                                         \
+        printf("ERROR: %s. (code: %i, line: %i, file:%s)\n", m, err, __LINE__, __FILENAME__); \
+        fflush(stdout);                                                                       \
+        exit(1);                                                                              \
+    }

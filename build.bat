@@ -3,7 +3,8 @@ echo "NOTE: Must be run with VCVars"
 IF NOT EXIST .\build mkdir .\build
 pushd .\build
 
-xxd -i ..\src\kernels\test.cl | sed 's/\([0-9a-f]\)$/\0, 0x00/' > .\test.cl.h
+cat  "..\src\kernels\util.cl" "..\src\kernels\collision.cl"  "..\src\kernels\irradiance_cache.cl" "..\src\kernels\test.cl" "..\src\kernels\path.cl" > all_kernels.cl
+xxd -i all_kernels.cl | sed 's/\([0-9a-f]\)$/\0, 0x00/' > .\test.cl.h
 
 xcopy /s ..\res .\res /Y
 

@@ -3,6 +3,32 @@
 #include <parallel.h>
 #include <CL/opencl.h>
 #include <scene.h>
+#include <irradiance_cache.h>
+
+#define KERNELS {"cast_ray_test", "generate_rays", "path_trace",    \
+                 "buffer_average", "f_buffer_average", "f_buffer_to_byte_buffer", \
+                 "ic_screen_textures", "generate_discontinuity",        \
+                 "float_average", "mip_single_upsample", "mip_upsample", \
+                 "mip_upsample_scaled", "mip_single_upsample_scaled", "mip_reduce", \
+                 "blit_float_to_output", "blit_float3_to_output"}
+#define NUM_KERNELS 16
+#define RAY_CAST_KRNL_INDX 0
+#define RAY_BUFFER_KRNL_INDX 1
+#define PATH_TRACE_KRNL_INDX 2
+#define BUFFER_AVG_KRNL_INDX 3
+#define F_BUFFER_AVG_KRNL_INDX 4
+#define F_BUF_TO_BYTE_BUF_KRNL_INDX 5
+#define IC_SCREEN_TEX_KRNL_INDX 6
+#define IC_GEN_DISC_KRNL_INDX 7
+#define IC_FLOAT_AVG_KRNL_INDX 8
+#define IC_MIP_S_UPSAMPLE_KRNL_INDX 9
+#define IC_MIP_UPSAMPLE_KRNL_INDX 10
+#define IC_MIP_UPSAMPLE_SCALED_KRNL_INDX 11
+#define IC_MIP_S_UPSAMPLE_SCALED_KRNL_INDX 12
+#define IC_MIP_REDUCE_KRNL_INDX 13
+#define BLIT_FLOAT_OUTPUT_INDX 14
+#define BLIT_FLOAT3_OUTPUT_INDX 15
+
 
 typedef struct _rt_ctx raytracer_context;
 
@@ -10,22 +36,25 @@ struct _rt_ctx{
     unsigned int width, height;
 
     float* ray_buffer;
+    vec4*  path_output_buffer;
     uint32_t* output_buffer;
     //uint32_t* fresh_frame_buffer;
 
     scene* stat_scene;
+    ic_context* ic_ctx;
+
+    unsigned int num_samples;
+    unsigned int current_sample;
 
     //CL
     rcl_ctx* rcl;
     rcl_program* program;
-    unsigned int ray_buffer_kernel_index;
-    unsigned int ray_cast_kernel_index;
-    unsigned int path_trace_kernel_index;
-    unsigned int buffer_average_kernel_index;
+
 
     cl_mem cl_ray_buffer;
-    cl_mem cl_output_buffer; //NOTE: not going to really be used in path tracing
-    cl_mem cl_fresh_frame_buffer; //Only exists on GPU
+    cl_mem cl_output_buffer;
+    cl_mem cl_path_output_buffer;
+    cl_mem cl_path_fresh_frame_buffer; //Only exists on GPU
 
 
     //TODO: add stuff
@@ -37,7 +66,7 @@ void raytracer_prepass(raytracer_context*);
 void raytracer_render(raytracer_context*);
 void raytracer_refined_render(raytracer_context*);
 void _raytracer_gen_ray_buffer(raytracer_context*);
-void _raytracer_path_trace(raytracer_context*, int);
-void _raytracer_average_buffers(raytracer_context*, int); //NOTE: DEPRECATED
-
+void _raytracer_path_trace(raytracer_context*, unsigned int);
+void _raytracer_average_buffers(raytracer_context*, unsigned int); //NOTE: DEPRECATED
+void _raytracer_push_path(raytracer_context*);
 void _raytracer_cast_rays(raytracer_context*); //NOTE: DEPRECATED

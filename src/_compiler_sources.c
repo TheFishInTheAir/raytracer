@@ -37,6 +37,7 @@
 #include <geom.c>
 #include <loader.c>
 #include <parallel.c>
+#include <irradiance_cache.c>
 #include <raytracer.c>
 /*
 int main()

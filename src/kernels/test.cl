@@ -1,11 +1,16 @@
 
-vec4 shade(collision_result result) //NOTE: Temp shitty phong
+vec4 shade(collision_result result, scene s, MESH_SCENE_DATA_PARAM)
 {
-    const vec3 light_pos = (vec3)(2,5,-1);
+    const vec3 light_pos = (vec3)(1,2, 0);
     vec3 nspace_light_dir = normalize(light_pos-result.point);
     vec4 test_lighting = (vec4) (clamp((float)dot(result.normal, nspace_light_dir), 0.0f, 1.0f));
-    test_lighting *= (vec4)(result.mat.colour, 1.0f);
-    return test_lighting;
+    ray r;
+    r.dir  = nspace_light_dir;
+    r.orig = result.point + nspace_light_dir*0.01f;
+    collision_result _cr;
+    bool visible = !collide_all(r, &_cr, s, MESH_SCENE_DATA);
+    //test_lighting *= (vec4)(result.mat.colour, 1.0f);
+    return visible*test_lighting/2;
 }
 
 
@@ -17,9 +22,9 @@ __kernel void cast_ray_test(
     const __global plane* planes,
 //Mesh
     const __global mesh* meshes,
-    const __global int* indices,
-    const __global vec3* vertices,
-    const __global vec3* normals,
+    image1d_t indices,
+    image1d_t vertices,
+    image1d_t normals,
     /* const __global vec2* texcoords, */
     /* , */
 
@@ -28,6 +33,12 @@ __kernel void cast_ray_test(
     const unsigned int height,
     const vec4 pos)
 {
+    scene s;
+    s.material_buffer = material_buffer;
+    s.spheres         = spheres;
+    s.planes          = planes;
+    s.meshes          = meshes;
+
     const vec4 sky = (vec4) (0.2, 0.8, 0.5, 0);
     //return;
     int id = get_global_id(0);
@@ -48,13 +59,12 @@ __kernel void cast_ray_test(
     //out_tex[x+y*width] = get_colour_signed((vec4)(r.dir,0));
     //out_tex[x+y*width] = get_colour_signed((vec4)(1,1,0,0));
     collision_result result;
-    if(!collide_all(r, &result, material_buffer, spheres, planes, meshes, indices,
-                   vertices, normals))
+    if(!collide_all(r, &result, s, MESH_SCENE_DATA))
     {
         out_tex[x+y*width] = get_colour( sky );
         return;
     }
-    vec4 colour = shade(result);
+    vec4 colour = shade(result, s, MESH_SCENE_DATA);
 
 
     #define NUM_REFLECTIONS 2
@@ -67,17 +77,16 @@ __kernel void cast_ray_test(
         if(i==0)
         {
             rays[i].orig = result.point + result.normal * 0.0001f; //NOTE: BIAS
-            rays[i].dir  = reflect(r.dir, result.normal);//reflect(r.dir, result.norm);
+            rays[i].dir  = reflect(r.dir, result.normal);
         }
         else
         {
             rays[i].orig = results[i-1].point + results[i-1].normal * 0.0001f; //NOTE: BIAS
-            rays[i].dir  = reflect(rays[i-1].dir, results[i-1].normal);//reflect(r.dir, result.norm);
+            rays[i].dir  = reflect(rays[i-1].dir, results[i-1].normal);
         }
-        if(collide_all(rays[i], results+i, material_buffer, spheres,
-                       planes, meshes, indices, vertices, normals))
+        if(collide_all(rays[i], results+i, s, MESH_SCENE_DATA))
         {
-            colours[i] = shade(results[i]);
+            colours[i] = shade(results[i], s, MESH_SCENE_DATA);
         }
         else
         {
@@ -88,32 +97,21 @@ __kernel void cast_ray_test(
     }
     for(int i = early_exit_num-1; i > -1; i--)
     {
-        //if(i==0)
-            //{
         if(i==NUM_REFLECTIONS-1)
             colours[i] = mix(colours[i], sky, results[i].mat.reflectivity);
 
         else
             colours[i] = mix(colours[i], colours[i+1], results[i].mat.reflectivity);
 
-
-            //}
-            //else
-            //{
-
-            //}
     }
 
     colour = mix(colour, colours[0],  result.mat.reflectivity);
 
-    out_tex[x+y*width] = get_colour( colour );
-
-    //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
-
+    out_tex[offset] = get_colour( colour );
 }
 
 
-//NOTE: it might be faster to make the ray buffer a multiple of 4 just to fit word size...
+//NOTE: it might be faster to make the ray buffer a multiple of 4 just to align with words...
 __kernel void generate_rays(
     __global float* out_tex,
     const unsigned int width,

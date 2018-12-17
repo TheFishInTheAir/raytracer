@@ -1,3 +1,7 @@
+/******************************************/
+/* NOTE: Irradiance Caching is Incomplete */
+/******************************************/
+
 #pragma once
 #include <stdint.h>
 

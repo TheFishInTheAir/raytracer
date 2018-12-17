@@ -12,14 +12,15 @@
 
 #include <parson.c>
 
-#define WIN32 // I guess CL doesn't add this macro...
-
+#ifdef _WIN32
+#define WIN32 // I guess CL doesn't add this macro by default...
+#endif
 
 #ifdef WIN32
 #include <win32.c>
 #endif
 
-//TODO: should prob put in a header
+//TODO: should put in a header
 #ifdef WIN32
 #define W_ALIGN(x) __declspec( align (x) )
 #define U_ALIGN(x) /*nothing*/
@@ -28,7 +29,7 @@
 #define U_ALIGN(x) __attribute__ ((aligned (x)));
 #endif
 
-//#define _MEM_DEBUG
+//#define _MEM_DEBUG //Enable verbose memory allocation, movement and freeing
 #include <debug.c>
 
 #include <os_abs.c>
@@ -39,10 +40,3 @@
 #include <parallel.c>
 #include <irradiance_cache.c>
 #include <raytracer.c>
-/*
-int main()
-{
-    printf("TEST\n");
-    return 0;
-}
-*/

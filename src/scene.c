@@ -13,31 +13,22 @@ void scene_init_resources(raytracer_context* rctx)
                                                         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                                         sizeof(plane)*rctx->stat_scene->num_spheres,
                                                         rctx->stat_scene->spheres, &err);
-    if(err!=CL_SUCCESS)
-    {
-        printf("Error Creating OpenCL Scene Sphere Buffer. %i\n", err);
-        exit(1);
-    }
+    ASRT_CL("Error Creating OpenCL Scene Sphere Buffer.");
 
     rctx->stat_scene->cl_plane_buffer = clCreateBuffer(rctx->rcl->context,
                                                        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                                        sizeof(plane)*rctx->stat_scene->num_planes,
                                                        rctx->stat_scene->planes, &err);
-    if(err!=CL_SUCCESS)
-    {
-        printf("Error Creating OpenCL Scene Plane Buffer. %i\n", err);
-        exit(1);
-    }
+    ASRT_CL("Error Creating OpenCL Scene Plane Buffer.");
+
 
     rctx->stat_scene->cl_material_buffer = clCreateBuffer(rctx->rcl->context,
                                                           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                                          sizeof(material)*rctx->stat_scene->num_materials,
+                                                          sizeof(material)*
+                                                          rctx->stat_scene->num_materials,
                                                           rctx->stat_scene->materials, &err);
-    if(err!=CL_SUCCESS)
-    {
-        printf("Error Creating OpenCL Scene Material Buffer. %i\n", err);
-        exit(1);
-    }
+        ASRT_CL("Error Creating OpenCL Scene Plane Buffer.");
+
 
     //Mesh
     rctx->stat_scene->cl_mesh_buffer = clCreateBuffer(rctx->rcl->context,
@@ -45,42 +36,24 @@ void scene_init_resources(raytracer_context* rctx)
                                                       rctx->stat_scene->num_meshes==0 ? 1 :
                                                       sizeof(mesh)*rctx->stat_scene->num_meshes,
                                                       rctx->stat_scene->meshes, &err);
-    if(err!=CL_SUCCESS)
-    {
-        printf("Error Creating OpenCL Scene Mesh Buffer. %i\n", err);
-        exit(1);
-    }
-    rctx->stat_scene->cl_mesh_vert_buffer = clCreateBuffer(rctx->rcl->context,
-                                                           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                                           rctx->stat_scene->num_mesh_verts==0 ? 1 :
-                                                           sizeof(vec3)*rctx->stat_scene->num_mesh_verts,
-                                                          rctx->stat_scene->mesh_verts, &err);
-    if(err!=CL_SUCCESS)
-    {
-        printf("Error Creating OpenCL Scene Mesh Vertex Buffer. %i\n", err);
-        exit(1);
-    }
-    rctx->stat_scene->cl_mesh_nrml_buffer = clCreateBuffer(rctx->rcl->context,
-                                                           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                                           rctx->stat_scene->num_mesh_nrmls==0 ? 1 :
-                                                           sizeof(vec3)*rctx->stat_scene->num_mesh_nrmls,
-                                                           rctx->stat_scene->mesh_nrmls, &err);
-    if(err!=CL_SUCCESS)
-    {
-        printf("Error Creating OpenCL Scene Mesh Normal Buffer. %i\n", err);
-        exit(1);
-    }
-    rctx->stat_scene->cl_mesh_index_buffer = clCreateBuffer(rctx->rcl->context,
-                                                            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                                            rctx->stat_scene->num_mesh_indices==0 ? 1 :
-                                                            sizeof(int)*
-                                                            rctx->stat_scene->num_mesh_indices*3,
-                                                            rctx->stat_scene->mesh_indices, &err);
-    if(err!=CL_SUCCESS)
-    {
-        printf("Error Creating OpenCL Scene Mesh Index Buffer. %i\n", err);
-        exit(1);
-    }
+    ASRT_CL("Error Creating OpenCL Scene Mesh Buffer.");
+
+    //mesh data is stored as images for faster access
+    rctx->stat_scene->cl_mesh_vert_buffer =
+        gen_1d_image(rctx, rctx->stat_scene->num_mesh_verts==0 ? 1 :
+                     sizeof(vec3)*rctx->stat_scene->num_mesh_verts,
+                     rctx->stat_scene->mesh_verts);
+
+    rctx->stat_scene->cl_mesh_nrml_buffer =
+        gen_1d_image(rctx, rctx->stat_scene->num_mesh_nrmls==0 ? 1 :
+                     sizeof(vec3)*rctx->stat_scene->num_mesh_nrmls,
+                     rctx->stat_scene->mesh_nrmls);
+
+    rctx->stat_scene->cl_mesh_index_buffer =
+        gen_1d_image(rctx, rctx->stat_scene->num_mesh_indices==0 ? 1 :
+                     sizeof(int)*
+                     rctx->stat_scene->num_mesh_indices,//maybe
+                     rctx->stat_scene->mesh_indices);
 }
 
 
@@ -91,10 +64,10 @@ void scene_resource_push(raytracer_context* rctx)
     if(rctx->stat_scene->meshes_changed)
     {
         clEnqueueWriteBuffer (	rctx->rcl->commands,
-                                rctx->stat_scene->cl_mesh_buffer, //TODO: make
+                                rctx->stat_scene->cl_mesh_buffer,
                                 CL_TRUE,
                                 0,
-                                sizeof(mesh)*rctx->stat_scene->num_meshes, //TODO: get from scene
+                                sizeof(mesh)*rctx->stat_scene->num_meshes,
                                 rctx->stat_scene->meshes,
                                 0,
                                 NULL,
@@ -104,10 +77,10 @@ void scene_resource_push(raytracer_context* rctx)
     if(rctx->stat_scene->spheres_changed)
     {
         clEnqueueWriteBuffer (	rctx->rcl->commands,
-                                rctx->stat_scene->cl_sphere_buffer, //TODO: make
+                                rctx->stat_scene->cl_sphere_buffer,
                                 CL_TRUE,
                                 0,
-                                sizeof(sphere)*rctx->stat_scene->num_spheres, //TODO: get from scene
+                                sizeof(sphere)*rctx->stat_scene->num_spheres,
                                 rctx->stat_scene->spheres,
                                 0,
                                 NULL,
@@ -117,10 +90,10 @@ void scene_resource_push(raytracer_context* rctx)
     if(rctx->stat_scene->planes_changed)
     {
         clEnqueueWriteBuffer (	rctx->rcl->commands,
-                                rctx->stat_scene->cl_plane_buffer, //TODO: make
+                                rctx->stat_scene->cl_plane_buffer,
                                 CL_TRUE,
                                 0,
-                                sizeof(plane)*rctx->stat_scene->num_planes, //TODO: get from scene
+                                sizeof(plane)*rctx->stat_scene->num_planes,
                                 rctx->stat_scene->planes,
                                 0,
                                 NULL,
@@ -131,16 +104,13 @@ void scene_resource_push(raytracer_context* rctx)
     if(rctx->stat_scene->materials_changed)
     {
         clEnqueueWriteBuffer (	rctx->rcl->commands,
-                                rctx->stat_scene->cl_material_buffer, //TODO: make
+                                rctx->stat_scene->cl_material_buffer,
                                 CL_TRUE,
                                 0,
-                                sizeof(material)*rctx->stat_scene->num_materials, //TODO: get from scene
+                                sizeof(material)*rctx->stat_scene->num_materials,
                                 rctx->stat_scene->materials,
                                 0,
                                 NULL,
                                 NULL);
     }
-
-
-
 }

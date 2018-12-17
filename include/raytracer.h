@@ -5,6 +5,7 @@
 #include <scene.h>
 #include <irradiance_cache.h>
 
+//Cheap, quick, and dirty way of managing kernels.
 #define KERNELS {"cast_ray_test", "generate_rays", "path_trace",    \
                  "buffer_average", "f_buffer_average", "f_buffer_to_byte_buffer", \
                  "ic_screen_textures", "generate_discontinuity",        \
@@ -32,7 +33,8 @@
 
 typedef struct _rt_ctx raytracer_context;
 
-struct _rt_ctx{
+struct _rt_ctx
+{
     unsigned int width, height;
 
     float* ray_buffer;
@@ -43,21 +45,23 @@ struct _rt_ctx{
     scene* stat_scene;
     ic_context* ic_ctx;
 
+
+    //TODO: seperate into contexts for each integrator.
+    //Path tracing only
+
     unsigned int num_samples;
     unsigned int current_sample;
+    bool render_complete;
 
     //CL
     rcl_ctx* rcl;
     rcl_program* program;
-
 
     cl_mem cl_ray_buffer;
     cl_mem cl_output_buffer;
     cl_mem cl_path_output_buffer;
     cl_mem cl_path_fresh_frame_buffer; //Only exists on GPU
 
-
-    //TODO: add stuff
 };
 
 raytracer_context* raytracer_init(unsigned int width, unsigned int height,

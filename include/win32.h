@@ -2,7 +2,6 @@
 #include <windows.h>
 #include <stdbool.h>
 #include <os_abs.h>
-//TODO: add v-table for this
 
 typedef struct
 {

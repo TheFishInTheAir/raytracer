@@ -3,7 +3,7 @@
 //typedef struct{} sphere;
 struct sphere;
 struct plane;
-typedef struct _rt_ctx raytracer_context; //hallelujah?...
+typedef struct _rt_ctx raytracer_context;
 
 typedef W_ALIGN(16) struct
 {
@@ -49,17 +49,17 @@ typedef struct
     sphere* spheres;
     cl_mem cl_sphere_buffer;
     unsigned int num_spheres; //NOTE: must be constant.
-    bool spheres_changed; //should re-push values.
+    bool spheres_changed;
     //Planes
     plane* planes;
     cl_mem cl_plane_buffer;
     unsigned int num_planes; //NOTE: must be constant.
-    bool planes_changed; //should re-push values.
+    bool planes_changed;
 
     //Meshes
     mesh* meshes; //All vertex data is stored contiguously
     cl_mem cl_mesh_buffer;
-    unsigned int num_meshes; //NOTE: must be constant.
+    unsigned int num_meshes;
     bool meshes_changed;
 
 

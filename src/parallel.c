@@ -71,7 +71,15 @@ void cl_info()
     free(platforms);
     return;
 }
-
+void pfn_notify (
+    const char *errinfo,
+    const void *private_info,
+    size_t cb,
+    void *user_data)
+{
+    fprintf(stderr, "\n--\nOpenCL ERROR: %s\n--\n", errinfo);
+    fflush(stderr);
+}
 void create_context(rcl_ctx* ctx)
 {
     int err = CL_SUCCESS;
@@ -107,7 +115,7 @@ void create_context(rcl_ctx* ctx)
 
     // Create a compute context
     //
-    ctx->context = clCreateContext(0, 1, &ctx->device_id, NULL, NULL, &err);
+    ctx->context = clCreateContext(0, 1, &ctx->device_id, &pfn_notify, NULL, &err);
     if (!ctx->context)
     {
         printf("Error: Failed to create a compute context!\n");
@@ -131,18 +139,59 @@ cl_mem gen_rgb_image(raytracer_context* rctx,
                      const unsigned int width,
                      const unsigned int height)
 {
-    int err;
+    cl_image_desc cl_standard_descriptor;
+    cl_image_format     cl_standard_format;
+    cl_standard_format.image_channel_order     = CL_RGBA;
+    cl_standard_format.image_channel_data_type = CL_FLOAT;
 
-    cl_image_desc temp_descriptor = rctx->ic_ctx->cl_standard_descriptor;
-    temp_descriptor.image_width  = width==0  ? rctx->width  : width;
-    temp_descriptor.image_height = height==0 ? rctx->height : height;
+    cl_standard_descriptor.image_type = CL_MEM_OBJECT_IMAGE2D;
+    cl_standard_descriptor.image_width = width==0  ? rctx->width  : width;
+    cl_standard_descriptor.image_height = height==0 ? rctx->height : height;
+    cl_standard_descriptor.image_depth  = 0;
+    cl_standard_descriptor.image_array_size  = 0;
+    cl_standard_descriptor.image_row_pitch  = 0;
+    cl_standard_descriptor.num_mip_levels = 0;
+    cl_standard_descriptor.num_samples = 0;
+    cl_standard_descriptor.buffer = NULL;
+
+    int err;
 
     cl_mem img = clCreateImage(rctx->rcl->context,
                                 CL_MEM_READ_WRITE,
-                                &rctx->ic_ctx->cl_standard_format,
-                                &temp_descriptor,
+                                &cl_standard_format,
+                               &cl_standard_descriptor,
                                 NULL,
                                 &err);
+    ASRT_CL("Couldn't Create OpenCL Texture");
+    return img;
+}
+cl_mem gen_1d_image(raytracer_context* rctx, size_t t, void* ptr)
+{
+
+    cl_image_desc cl_standard_descriptor;
+    cl_image_format     cl_standard_format;
+    cl_standard_format.image_channel_order     = CL_RGBA;
+    cl_standard_format.image_channel_data_type = CL_FLOAT;
+
+    cl_standard_descriptor.image_type = CL_MEM_OBJECT_IMAGE1D;
+    cl_standard_descriptor.image_width = t/4 == 0 ? 1 : t/4;
+    cl_standard_descriptor.image_height = 0;
+    cl_standard_descriptor.image_depth  = 0;
+    cl_standard_descriptor.image_array_size  = 0;
+    cl_standard_descriptor.image_row_pitch  = 0;
+    cl_standard_descriptor.num_mip_levels = 0;
+    cl_standard_descriptor.num_samples = 0;
+    cl_standard_descriptor.buffer = NULL;
+
+    int err;
+
+
+    cl_mem img = clCreateImage(rctx->rcl->context,
+                               CL_MEM_READ_WRITE | (/*ptr == NULL ? 0 :*/ CL_MEM_COPY_HOST_PTR),
+                               &cl_standard_format,
+                               &cl_standard_descriptor,
+                               ptr,
+                               &err);
     ASRT_CL("Couldn't Create OpenCL Texture");
     return img;
 }
@@ -254,7 +303,7 @@ void load_program_raw(rcl_ctx* ctx, char* data,
     if (!program->program)
     {
         printf("Error: Failed to create compute program!\n");
-        return;
+        exit(1);
     }
 
     // Build the program executable
@@ -273,7 +322,7 @@ void load_program_raw(rcl_ctx* ctx, char* data,
         int n_err = clGetProgramBuildInfo(program->program, ctx->device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
         if(n_err != CL_SUCCESS)
         {
-            printf("WTF the error had an error I hate this. err:%i\n",n_err);
+            printf("The error had an error, I hate this. err:%i\n",n_err);
         }
         printf("err code:%i\n %s\n", err, buffer);
         exit(1);
@@ -328,6 +377,7 @@ void load_program_url(rcl_ctx* ctx, char* url,
 
 }
 
+//NOTE: old
 void test_sphere_raytracer(rcl_ctx* ctx, rcl_program* program,
         sphere* spheres, int num_spheres,
         uint32_t* bitmap, int width, int height)
@@ -336,7 +386,7 @@ void test_sphere_raytracer(rcl_ctx* ctx, rcl_program* program,
 
     static cl_mem tex;
     static cl_mem s_buf;
-    static bool init = false;
+    static bool init = false; //temporary
 
     if(!init)
     {

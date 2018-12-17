@@ -14,6 +14,7 @@ typedef float mat4[16];
 /* Util */
 /********/
 
+
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
     CLK_ADDRESS_CLAMP_TO_EDGE   |
     CLK_FILTER_NEAREST;
@@ -59,8 +60,6 @@ unsigned int get_colour(vec4 col)
     /* outCol |= 0x0000ff00 & min((unsigned int)(col.y*255), (unsigned int)255)<<8; */
     /* outCol |= 0x000000ff & min((unsigned int)(col.z*255), (unsigned int)255); */
     return outCol;
-    //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
-
 }
 
 static float get_random(unsigned int *seed0, unsigned int *seed1)

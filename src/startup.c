@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include <raytracer.h>
 
-#define WIN32 //BECAUSE CL IS FUCKING GAY
+
+
 
 #ifdef WIN32
 #include <win32.h>
@@ -116,10 +117,10 @@ void run(void* unnused_rn)
         raytracer_context* rctx = raytracer_init((unsigned int)width, (unsigned int)height,
                                                  row, rcl);
 		//scene* rscene = (scene*) malloc(sizeof(scene));
-        scene* rscene = load_scene_json_url("scenes/path_test.rsc");
+        scene* rscene = load_scene_json_url("scenes/path_test_2.rsc");
 
         rctx->stat_scene = rscene;
-
+        rctx->num_samples = 8;
 
         raytracer_prepass(rctx);
 
@@ -138,6 +139,7 @@ void run(void* unnused_rn)
         /* dist = sin(t)+1; */
         /* //mat4 temp; */
         /* xm4_translatev(rctx->stat_scene->camera_world_matrix, 0, dist, 0); */
+        int real_start = os_get_time_mili(abst);
         while(should_run)
         {
 
@@ -161,11 +163,20 @@ void run(void* unnused_rn)
             }
 
             raytracer_refined_render(rctx);
+            if(rctx->render_complete)
+            {
+                printf("\n\nRender took: %02i ms (%d samples)\n\n",
+                       os_get_time_mili(abst)-real_start, rctx->num_samples);
+                break;
+            }
+
 
             int mili = os_get_time_mili(abst)-last_time;
             _timer_store += mili;
             _timer_counter++;
-            printf("\rFrame took: %02i ms, average per 20 frames: %0.2f, avg fps: %03.2f    ", mili, _timer_average, 1000.0f/_timer_average);
+            printf("\rFrame took: %02i ms, average per 20 frames: %0.2f, avg fps: %03.2f (%d/%d)    ",
+                   mili, _timer_average, 1000.0f/_timer_average,
+                   rctx->current_sample, rctx->num_samples);
 
             if(_timer_counter>20)
             {
@@ -182,7 +193,7 @@ void run(void* unnused_rn)
 }
 
 
-int startup() //mainfunction called from win32 abstraction
+int startup() //main function called from win32 abstraction
 {
 #ifdef WIN32
     abst = init_win32_abs();

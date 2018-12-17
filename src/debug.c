@@ -40,11 +40,12 @@ void _debug_free(void* ptr, int line, const char *func)
 #define __FILENAME__ (strrchr(__FILE__, _FILE_SEP) ? strrchr(__FILE__, _FILE_SEP) + 1 : __FILE__)
 
 
-//TODO: replace all errors with.
+//TODO: replace all errors with this.
 #define ASRT_CL(m)                                                                            \
     if(err!=CL_SUCCESS)                                                                       \
     {                                                                                         \
-        printf("ERROR: %s. (code: %i, line: %i, file:%s)\n", m, err, __LINE__, __FILENAME__); \
-        fflush(stdout);                                                                       \
-        exit(1);                                                                              \
+        fprintf(stderr, "ERROR: %s. (code: %i, line: %i, file:%s)\nPRESS ENTER TO EXIT\n", \
+            m, err, __LINE__, __FILENAME__);                            \
+        fflush(stderr);                                                 \
+        while(1){char c; scanf("%c",&c); exit(1);}                      \
     }

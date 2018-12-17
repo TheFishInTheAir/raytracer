@@ -1,19 +1,10 @@
+/******************************************/
+/* NOTE: Irradiance Caching is Incomplete */
+/******************************************/
+
 /**********************/
 /* Irradiance Caching */
 /**********************/
-
-
-/* typedef struct */
-/* { */
-/*     vec3 pos; */
-/*     size_t left, right; //pointers within buffer */
-
-/*     //Irradiance cache */
-/*     vec3 irradiance; */
-/*     vec3 normal; */
-/*     float angle_factor; */
-
-/* } __attribute__((aligned (16)))  ic_kd_node; */
 
 __kernel void ic_hemisphere_sample(
 
@@ -35,10 +26,17 @@ __kernel void ic_screen_textures(
     const __global sphere* spheres,
     const __global plane* planes,
     const __global mesh* meshes,
-    const __global int* indices,
-    const __global vec3* vertices,
-    const __global vec3* normals)
+    image1d_t indices,
+    image1d_t vertices,
+    image1d_t normals)
 {
+    scene s;
+    s.material_buffer = material_buffer;
+    s.spheres         = spheres;
+    s.planes          = planes;
+    s.meshes          = meshes;
+
+
     int id = get_global_id(0);
     int x  = id%width;
     int y  = id/width;
@@ -52,8 +50,7 @@ __kernel void ic_screen_textures(
     r.dir.z = ray_buffer[ray_offset+2];
 
     collision_result result;
-    if(!collide_all(r, &result, material_buffer, spheres, planes, meshes, indices,
-                    vertices, normals))
+    if(!collide_all(r, &result, s, MESH_SCENE_DATA))
     {
         write_imagef(pos_tex, (int2)(x,y), (vec4)(0));
         write_imagef(nrm_tex, (int2)(x,y), (vec4)(0));

@@ -1,3 +1,7 @@
+/******************************************/
+/* NOTE: Irradiance Caching is Incomplete */
+/******************************************/
+
 #include <irradiance_cache.h>
 #include <raytracer.h>
 #include <parallel.h>
@@ -254,7 +258,6 @@ void upsample_mipmaps_f(raytracer_context* rctx, cl_mem texture,
     { //Upsample
         for(int i = 0; i < num_mipmaps; i++) //First one is already at proper resolution
         {
-            //TODO: remove first iteration
             cl_kernel kernel = rctx->program->raw_kernels[IC_MIP_S_UPSAMPLE_SCALED_KRNL_INDX];
 
             clSetKernelArg(kernel, 0, sizeof(cl_mem), &mipmaps[i].cl_image_ref);
@@ -414,10 +417,6 @@ void ic_screenspace(raytracer_context* rctx)
 
 
     //INSERT
-
-
-
-
     cl_kernel kernel = rctx->program->raw_kernels[BLIT_FLOAT_OUTPUT_INDX];
 
     clSetKernelArg(kernel, 0, sizeof(cl_mem), &rctx->cl_output_buffer);

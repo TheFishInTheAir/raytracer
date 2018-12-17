@@ -1,76 +1,10 @@
-typedef union
-{
-    float arr[4];
-    vec3  vec;
-} hack_vec3;
+/*********/
+/* Types */
+/*********/
 
-//NOTE: from Graphics Gems 1990 (Andrew Woo and John Amantides)
-#define NUMDIM	3
-#define RIGHT	0
-#define LEFT	1
-#define MIDDLE	2
-bool hitBoundingBox(hack_vec3 minB, hack_vec3 maxB,
-                    hack_vec3 origin, hack_vec3 dir, hack_vec3 coord)
-{
-	bool inside = true;
-	char quadrant[NUMDIM];
-	register int i;
-	int whichPlane;
-	float maxT[NUMDIM];
-	float candidatePlane[NUMDIM];
+#define MESH_SCENE_DATA_PARAM image1d_t indices, image1d_t vertices, image1d_t normals
+#define MESH_SCENE_DATA       indices, vertices, normals
 
-	/* Find candidate planes; this loop can be avoided if
-   	rays cast all from the eye(assume perpsective view) */
-	for (i=0; i<NUMDIM; i++)
-		if(origin.arr[i] < minB.arr[i]) {
-			quadrant[i] = LEFT;
-			candidatePlane[i] = minB.arr[i];
-			inside = false;
-		}else if (origin.arr[i] > maxB.arr[i]) {
-			quadrant[i] = RIGHT;
-			candidatePlane[i] = maxB.arr[i];
-			inside = false;
-		}else	{
-			quadrant[i] = MIDDLE;
-		}
-
-	/* Ray origin inside bounding box */
-	if(inside)	{
-		coord = origin;
-		return true; //should be true
-	}
-
-
-	/* Calculate T distances to candidate planes */
-	for (i = 0; i < NUMDIM; i++)
-		if (quadrant[i] != MIDDLE && dir.arr[i] !=0.)
-			maxT[i] = (candidatePlane[i]-origin.arr[i]) / dir.arr[i];
-		else
-			maxT[i] = -1.;
-
-	/* Get largest of the maxT's for final choice of intersection */
-	whichPlane = 0;
-	for (i = 1; i < NUMDIM; i++)
-		if (maxT[whichPlane] < maxT[i])
-			whichPlane = i;
-
-	/* Check final candidate actually inside box */
-	if (maxT[whichPlane] < 0.) return false;
-	for (i = 0; i < NUMDIM; i++)
-		if (whichPlane != i) {
-			coord.arr[i] = origin.arr[i] + maxT[whichPlane] * dir.arr[i];
-			if (coord.arr[i] < minB.arr[i] || coord.arr[i] > maxB.arr[i])
-				return false;
-		} else {
-			coord.arr[i] = candidatePlane[i];
-		}
-	return true;				/* ray hits box */
-}
-
-
-/************/
-/* Material */
-/************/
 typedef struct //16 bytes
 {
     vec3 colour;
@@ -78,31 +12,12 @@ typedef struct //16 bytes
     float reflectivity;
 } __attribute__ ((aligned (16))) material;
 
-//TODO: refactor var names
-/*material get_material(__global float* buf, int offset) //NOTE: offset is index (woule be a better name)
-{
-    int real_offset = offset*(4);
-
-    material m;
-
-    m.reflectivity = buf[0 + real_offset];
-    m.colour.x     = buf[1 + real_offset];
-    m.colour.y     = buf[2 + real_offset];
-    m.colour.z     = buf[3 + real_offset];
-
-    return m;
-}*/
-
-/*******/
-/* Ray */
-/*******/
 typedef struct
 {
     vec3 orig;
     vec3 dir;
 } ray;
 
-//OTHER THING
 typedef struct
 {
     bool did_hit;
@@ -110,8 +25,67 @@ typedef struct
     vec3 point;
     float dist;
     material mat;
-    //TODO: Add material
 } collision_result;
+
+typedef struct //32 bytes (one word)
+{
+    vec3 pos;
+    //4 bytes padding
+    float radius;
+    int material_index;
+    //8 bytes padding
+} __attribute__ ((aligned (16))) sphere;
+
+typedef struct plane
+{
+    vec3 pos;
+    vec3 normal;
+
+    int material_index;
+} __attribute__ ((aligned (16))) plane;
+
+typedef struct
+{
+
+    mat4 model;
+
+    vec3 max;
+    vec3 min;
+
+    int index_offset;
+    int num_indices;
+
+
+    int material_index;
+} __attribute__((aligned (32))) mesh; //TODO: align with cpu NOTE: I don't think we need 32
+
+typedef struct
+{
+    const __global material* material_buffer;
+    const __global sphere* spheres;
+    const __global plane* planes;
+    //Mesh
+    const __global mesh* meshes;
+} scene;
+
+
+
+bool hitBoundingBox(vec3 vmin, vec3 vmax,
+                    ray r)
+{
+    vec3 tmin = (vmin - r.orig) / r.dir;
+    vec3 tmax = (vmax - r.orig) / r.dir;
+
+    vec3 real_min = min(tmin, tmax);
+    vec3 real_max = max(tmin, tmax);
+
+    vec3 minmax = min(min(real_max.x, real_max.y), real_max.z);
+    vec3 maxmin = max(max(real_min.x, real_min.y), real_min.z);
+
+    if (dot(minmax,minmax) >= dot(maxmin, maxmin))
+    { return (dot(maxmin, maxmin) > 0.001f ? true : false); }
+    else return false;
+}
 
 
 
@@ -127,7 +101,7 @@ typedef struct
 
 //Moller-Trumbore
 //t u v = x y z
-bool does_collide_triangle(vec3 tri[3], vec3* hit_coords, ray r)
+bool does_collide_triangle(vec3 tri[4], vec3* hit_coords, ray r) //tri has extra for padding
 {
     vec3 ab = tri[1] - tri[0];
     vec3 ac = tri[2] - tri[0];
@@ -135,7 +109,7 @@ bool does_collide_triangle(vec3 tri[3], vec3* hit_coords, ray r)
     vec3 pvec = cross(r.dir, ac); //Triple product
     float det = dot(ab, pvec);
 
-    if (det < EPSILON) // Behind or close to parallel. NOTE: TEMP FABS
+    if (det < EPSILON) // Behind or close to parallel.
         return false;
 
     float invDet = 1.f / det;
@@ -156,21 +130,12 @@ bool does_collide_triangle(vec3 tri[3], vec3* hit_coords, ray r)
     hit_coords->x = dot(ac, qvec) * invDet;
 
     return true; //goose
-
 }
 
 
 /**********/
 /* Sphere */
 /**********/
-typedef struct //32 bytes (one word)
-{
-    vec3 pos;
-    //4 bytes padding
-    float radius;
-    int material_index;
-    //8 bytes padding
-} __attribute__ ((aligned (16))) sphere;
 
 bool does_collide_sphere(sphere s, ray r, float *dist)
 {
@@ -204,15 +169,6 @@ bool does_collide_sphere(sphere s, ray r, float *dist)
 /* Plane */
 /*********/
 
-typedef struct plane
-{
-    vec3 pos;
-    vec3 normal;
-
-    int material_index;
-} __attribute__ ((aligned (16))) plane;
-
-
 bool does_collide_plane(plane p, ray r, float *dist)
 {
     float denom = dot(r.dir, p.normal);
@@ -237,91 +193,94 @@ bool does_collide_plane(plane p, ray r, float *dist)
 /*                  */
 /********************/
 
-typedef struct
-{
 
-    mat4 model;
-
-    vec3 max;
-    vec3 min;
-
-    int index_offset;
-    int num_indices;
-
-
-    int material_index;
-} __attribute__((aligned (32))) mesh; //TODO: align with cpu NOTE: I don't think we need 32
-
-bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist,
-                            const __global int* indices,
-                            const __global vec3* vertices,
-                            const __global vec3* normals)
+bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist, scene s,
+                            MESH_SCENE_DATA_PARAM)
 {
     //TODO: k-d trees
     *dist = FAR_PLANE;
     float min_t = FAR_PLANE;
     vec3 hit_coord; //NOTE: currently unused
     ray r2 = r;
-    if(!hitBoundingBox((hack_vec3)collider.min, (hack_vec3)collider.max,
-                       (hack_vec3)r.orig, (hack_vec3) r.dir, (hack_vec3) hit_coord))
+    if(!hitBoundingBox(collider.min, collider.max, r))
+    {
         return false;
+    }
 
-    //return false;
     for(int i = 0; i < collider.num_indices/3; i++) // each ivec3
     {
-        vec3 tri[3]; //TODO: optmimze
+        vec3 tri[4];
 
         //get vertex (first element of each index)
-        int idx_0 = indices[(i*3+collider.index_offset+0)*3]; //TODO: add offset
-        int idx_1 = indices[(i*3+collider.index_offset+1)*3]; //
-        int idx_2 = indices[(i*3+collider.index_offset+2)*3]; //
 
-        tri[0] = vertices[idx_0];
-        tri[1] = vertices[idx_1];
-        tri[2] = vertices[idx_2];
+        int4 idx_0 = read_imagei(indices, i*3+collider.index_offset+0);
+        int4 idx_1 = read_imagei(indices, i*3+collider.index_offset+1);
+        int4 idx_2 = read_imagei(indices, i*3+collider.index_offset+2);
 
-        /*printf("%i/%i : (%.2f %.2f %.2f) (%.2f %.2f %.2f) (%.2f %.2f %.2f)\n", i, collider.num_indices/3,
-               tri[0].x, tri[0].y, tri[0].z,
-               tri[1].x, tri[1].y, tri[1].z,
-               tri[2].x, tri[2].y, tri[2].z);*/
+        tri[0] = read_imagef(vertices, idx_0.x).xyz;
+        tri[1] = read_imagef(vertices, idx_1.x).xyz;
+        tri[2] = read_imagef(vertices, idx_2.x).xyz;
 
 
-        vec3 bc_hit_coords; //t u v = x y z
-        if(does_collide_triangle(tri, &bc_hit_coords, r))
+
+        vec3 bc_hit_coords = (vec3)(0.f); //t u v = x y z
+        if(does_collide_triangle(tri, &bc_hit_coords, r) &&
+           bc_hit_coords.x<min_t && bc_hit_coords.x>0)
         {
-            //printf("NUT_0!! %f\n", bc_hit_coords.x);
-            if(bc_hit_coords.x<min_t && bc_hit_coords.x>0)
-            {
-
-                min_t = bc_hit_coords.x; //t (distance along direction)
-
-                int nidx_0 = indices[(i*3+collider.index_offset+0)*3+1]; //TODO: add offset
-                int nidx_1 = indices[(i*3+collider.index_offset+1)*3+1]; //
-                int nidx_2 = indices[(i*3+collider.index_offset+2)*3+1]; //
-
-                vec3 anorm = normals[nidx_0]*(1-bc_hit_coords.y-bc_hit_coords.z); //w
-                vec3 bnorm = normals[nidx_1]*bc_hit_coords.y; //u
-                vec3 cnorm = normals[nidx_2]*bc_hit_coords.z; //v
-
-
-
-                *normal = anorm+bnorm+cnorm;
-                /*printf("TEST: %f %f %f: %f\n",
-                       bc_hit_coords.y, bc_hit_coords.z,
-                       1-(bc_hit_coords.y+bc_hit_coords.z),
-                       bc_hit_coords.y+bc_hit_coords.z+1-(bc_hit_coords.y+bc_hit_coords.z)
-                       );*/
-                //printf("TEST: %f\n", fabs((normals[nidx_0]).x)+fabs((normals[nidx_0]).y)+fabs((normals[nidx_0]).z));
-
-            }
+            min_t = bc_hit_coords.x; //t (distance along direction)
+            *normal =
+                read_imagef(normals, idx_0.y).xyz*(1-bc_hit_coords.y-bc_hit_coords.z)+
+                read_imagef(normals, idx_1.y).xyz*bc_hit_coords.y+
+                read_imagef(normals, idx_2.y).xyz*bc_hit_coords.z;
+                //break; //convex optimization
         }
 
     }
 
 
     *dist = min_t;
-    //if(r.dir.z>0&&min_t==FAR_PLANE)
-    //    printf("fuck but good\n");
+    return min_t != FAR_PLANE;
+
+}
+
+bool does_collide_with_mesh_alt(mesh collider, ray r, vec3* normal, float* dist, scene s,
+                            MESH_SCENE_DATA_PARAM)
+{
+    *dist = FAR_PLANE;
+    float min_t = FAR_PLANE;
+    vec3 hit_coord; //NOTE: currently unused
+    ray r2 = r;
+
+    for(int i = 0; i < SCENE_NUM_INDICES/3; i++)
+    {
+        vec3 tri[4];
+
+        //get vertex (first element of each index)
+
+        int4 idx_0 = read_imagei(indices, i*3+collider.index_offset+0);
+        int4 idx_1 = read_imagei(indices, i*3+collider.index_offset+1);
+        int4 idx_2 = read_imagei(indices, i*3+collider.index_offset+2);
+
+        tri[0] = read_imagef(vertices, idx_0.x).xyz;
+        tri[1] = read_imagef(vertices, idx_1.x).xyz;
+        tri[2] = read_imagef(vertices, idx_2.x).xyz;
+
+
+        vec3 bc_hit_coords = (vec3)(0.f); //t u v = x y z
+        if(does_collide_triangle(tri, &bc_hit_coords, r) &&
+           bc_hit_coords.x<min_t && bc_hit_coords.x>0)
+        {
+                min_t = bc_hit_coords.x; //t (distance along direction)
+                *normal =
+                    read_imagef(normals, idx_0.y).xyz*(1-bc_hit_coords.y-bc_hit_coords.z)+
+                    read_imagef(normals, idx_1.y).xyz*bc_hit_coords.y+
+                    read_imagef(normals, idx_2.y).xyz*bc_hit_coords.z;
+        }
+
+    }
+
+
+    *dist = min_t;
     return min_t != FAR_PLANE;
 
 }
@@ -333,12 +292,7 @@ bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist,
 /************************/
 
 
-bool collide_meshes(ray r, collision_result* result,
-                    const __global material* material_buffer,
-                    const __global mesh* meshes,
-                    const __global int*  indices,
-                    const __global vec3* vertices,
-                    const __global vec3* normals)
+bool collide_meshes(ray r, collision_result* result, scene s, MESH_SCENE_DATA_PARAM)
 {
 
     float dist = FAR_PLANE;
@@ -347,11 +301,10 @@ bool collide_meshes(ray r, collision_result* result,
 
     for(int i = 0; i < SCENE_NUM_MESHES; i++)
     {
-        mesh current_mesh = meshes[i];
+        mesh current_mesh = s.meshes[i];
         float local_dist = FAR_PLANE;
         vec3 normal;
-        if(does_collide_with_mesh(current_mesh, r, &normal, &local_dist,
-                                  indices, vertices, normals))
+        if(does_collide_with_mesh(current_mesh, r, &normal,  &local_dist, s, MESH_SCENE_DATA))
         {
 
             if(local_dist<dist)
@@ -360,7 +313,7 @@ bool collide_meshes(ray r, collision_result* result,
                 result->dist = dist;
                 result->normal = normal;
                 result->point = (r.dir*dist)+r.orig;
-                result->mat = material_buffer[current_mesh.material_index];
+                result->mat = s.material_buffer[current_mesh.material_index];
                 result->did_hit = true;
             }
         }
@@ -368,10 +321,7 @@ bool collide_meshes(ray r, collision_result* result,
     return result->did_hit;
 }
 
-bool collide_primitives(ray r, collision_result* result,
-                        const __global material* material_buffer,
-                        const __global sphere* spheres,
-                        const __global plane* planes)
+bool collide_primitives(ray r, collision_result* result, scene s)
 {
 
     float dist = FAR_PLANE;
@@ -379,7 +329,7 @@ bool collide_primitives(ray r, collision_result* result,
     result->dist = FAR_PLANE;
     for(int i = 0; i < SCENE_NUM_SPHERES; i++)
     {
-        sphere current_sphere = spheres[i];//get_sphere(spheres, i);
+        sphere current_sphere = s.spheres[i];//get_sphere(spheres, i);
         float local_dist = FAR_PLANE;
         if(does_collide_sphere(current_sphere, r, &local_dist))
         {
@@ -387,17 +337,17 @@ bool collide_primitives(ray r, collision_result* result,
             {
                 dist = local_dist;
                 result->did_hit = true;
-                result->dist = dist;
-                result->point  = r.dir*dist+r.orig;
-                result->normal = normalize(result->point - current_sphere.pos);
-                result->mat = material_buffer[current_sphere.material_index];
+                result->dist    = dist;
+                result->point   = r.dir*dist+r.orig;
+                result->normal  = normalize(result->point - current_sphere.pos);
+                result->mat     = s.material_buffer[current_sphere.material_index];
             }
         }
     }
 
     for(int i = 0; i < SCENE_NUM_PLANES; i++)
     {
-        plane current_plane = planes[i];//get_plane(planes, i);
+        plane current_plane = s.planes[i];//get_plane(planes, i);
         float local_dist =  FAR_PLANE;
         if(does_collide_plane(current_plane, r, &local_dist))
         {
@@ -405,10 +355,10 @@ bool collide_primitives(ray r, collision_result* result,
             {
                 dist = local_dist;
                 result->did_hit = true;
-                result->dist   = dist;
-                result->point  = r.dir*dist+r.orig;
-                result->normal = current_plane.normal;
-                result->mat = material_buffer[current_plane.material_index];
+                result->dist    = dist;
+                result->point   = r.dir*dist+r.orig;
+                result->normal  = current_plane.normal;
+                result->mat     = s.material_buffer[current_plane.material_index];
             }
         }
     }
@@ -416,21 +366,14 @@ bool collide_primitives(ray r, collision_result* result,
     return dist != FAR_PLANE;
 }
 
-bool collide_all(ray r, collision_result* result,
-                 const __global material* material_buffer,
-                 const __global sphere* spheres,
-                 const __global plane* planes,
-                 const __global mesh* meshes,
-                 const __global int*  indices,
-                 const __global vec3* vertices,
-                 const __global vec3* normals)
+bool collide_all(ray r, collision_result* result, scene s, MESH_SCENE_DATA_PARAM)
 {
     float dist = FAR_PLANE;
-    if(collide_primitives(r, result, material_buffer, spheres, planes))
+    if(collide_primitives(r, result, s))
         dist = result->dist;
 
     collision_result m_result;
-    if(collide_meshes(r, &m_result, material_buffer, meshes, indices, vertices, normals))
+    if(collide_meshes(r, &m_result, s, MESH_SCENE_DATA))
         if(m_result.dist < dist)
             *result = m_result;
 

@@ -14,6 +14,7 @@ typedef float mat4[16];
 /* Util */
 /********/
 
+
 __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
     CLK_ADDRESS_CLAMP_TO_EDGE   |
     CLK_FILTER_NEAREST;
@@ -59,8 +60,6 @@ unsigned int get_colour(vec4 col)
     /* outCol |= 0x0000ff00 & min((unsigned int)(col.y*255), (unsigned int)255)<<8; */
     /* outCol |= 0x000000ff & min((unsigned int)(col.z*255), (unsigned int)255); */
     return outCol;
-    //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
-
 }
 
 static float get_random(unsigned int *seed0, unsigned int *seed1)
@@ -109,79 +108,13 @@ __kernel void blit_float3_to_output(
     int offset = x+y*width;
     out_tex[offset] = get_colour(read_imagef(in_flts, sampler, (float2)(x, y)));
 }
-typedef union
-{
-    float arr[4];
-    vec3  vec;
-} hack_vec3;
+/*********/
+/* Types */
+/*********/
 
-//NOTE: from Graphics Gems 1990 (Andrew Woo and John Amantides)
-#define NUMDIM	3
-#define RIGHT	0
-#define LEFT	1
-#define MIDDLE	2
-bool hitBoundingBox(hack_vec3 minB, hack_vec3 maxB,
-                    hack_vec3 origin, hack_vec3 dir, hack_vec3 coord)
-{
-	bool inside = true;
-	char quadrant[NUMDIM];
-	register int i;
-	int whichPlane;
-	float maxT[NUMDIM];
-	float candidatePlane[NUMDIM];
+#define MESH_SCENE_DATA_PARAM image1d_t indices, image1d_t vertices, image1d_t normals
+#define MESH_SCENE_DATA       indices, vertices, normals
 
-	/* Find candidate planes; this loop can be avoided if
-   	rays cast all from the eye(assume perpsective view) */
-	for (i=0; i<NUMDIM; i++)
-		if(origin.arr[i] < minB.arr[i]) {
-			quadrant[i] = LEFT;
-			candidatePlane[i] = minB.arr[i];
-			inside = false;
-		}else if (origin.arr[i] > maxB.arr[i]) {
-			quadrant[i] = RIGHT;
-			candidatePlane[i] = maxB.arr[i];
-			inside = false;
-		}else	{
-			quadrant[i] = MIDDLE;
-		}
-
-	/* Ray origin inside bounding box */
-	if(inside)	{
-		coord = origin;
-		return true; //should be true
-	}
-
-
-	/* Calculate T distances to candidate planes */
-	for (i = 0; i < NUMDIM; i++)
-		if (quadrant[i] != MIDDLE && dir.arr[i] !=0.)
-			maxT[i] = (candidatePlane[i]-origin.arr[i]) / dir.arr[i];
-		else
-			maxT[i] = -1.;
-
-	/* Get largest of the maxT's for final choice of intersection */
-	whichPlane = 0;
-	for (i = 1; i < NUMDIM; i++)
-		if (maxT[whichPlane] < maxT[i])
-			whichPlane = i;
-
-	/* Check final candidate actually inside box */
-	if (maxT[whichPlane] < 0.) return false;
-	for (i = 0; i < NUMDIM; i++)
-		if (whichPlane != i) {
-			coord.arr[i] = origin.arr[i] + maxT[whichPlane] * dir.arr[i];
-			if (coord.arr[i] < minB.arr[i] || coord.arr[i] > maxB.arr[i])
-				return false;
-		} else {
-			coord.arr[i] = candidatePlane[i];
-		}
-	return true;				/* ray hits box */
-}
-
-
-/************/
-/* Material */
-/************/
 typedef struct //16 bytes
 {
     vec3 colour;
@@ -189,31 +122,12 @@ typedef struct //16 bytes
     float reflectivity;
 } __attribute__ ((aligned (16))) material;
 
-//TODO: refactor var names
-/*material get_material(__global float* buf, int offset) //NOTE: offset is index (woule be a better name)
-{
-    int real_offset = offset*(4);
-
-    material m;
-
-    m.reflectivity = buf[0 + real_offset];
-    m.colour.x     = buf[1 + real_offset];
-    m.colour.y     = buf[2 + real_offset];
-    m.colour.z     = buf[3 + real_offset];
-
-    return m;
-}*/
-
-/*******/
-/* Ray */
-/*******/
 typedef struct
 {
     vec3 orig;
     vec3 dir;
 } ray;
 
-//OTHER THING
 typedef struct
 {
     bool did_hit;
@@ -221,8 +135,67 @@ typedef struct
     vec3 point;
     float dist;
     material mat;
-    //TODO: Add material
 } collision_result;
+
+typedef struct //32 bytes (one word)
+{
+    vec3 pos;
+    //4 bytes padding
+    float radius;
+    int material_index;
+    //8 bytes padding
+} __attribute__ ((aligned (16))) sphere;
+
+typedef struct plane
+{
+    vec3 pos;
+    vec3 normal;
+
+    int material_index;
+} __attribute__ ((aligned (16))) plane;
+
+typedef struct
+{
+
+    mat4 model;
+
+    vec3 max;
+    vec3 min;
+
+    int index_offset;
+    int num_indices;
+
+
+    int material_index;
+} __attribute__((aligned (32))) mesh; //TODO: align with cpu NOTE: I don't think we need 32
+
+typedef struct
+{
+    const __global material* material_buffer;
+    const __global sphere* spheres;
+    const __global plane* planes;
+    //Mesh
+    const __global mesh* meshes;
+} scene;
+
+
+
+bool hitBoundingBox(vec3 vmin, vec3 vmax,
+                    ray r)
+{
+    vec3 tmin = (vmin - r.orig) / r.dir;
+    vec3 tmax = (vmax - r.orig) / r.dir;
+
+    vec3 real_min = min(tmin, tmax);
+    vec3 real_max = max(tmin, tmax);
+
+    vec3 minmax = min(min(real_max.x, real_max.y), real_max.z);
+    vec3 maxmin = max(max(real_min.x, real_min.y), real_min.z);
+
+    if (dot(minmax,minmax) >= dot(maxmin, maxmin))
+    { return (dot(maxmin, maxmin) > 0.001f ? true : false); }
+    else return false;
+}
 
 
 
@@ -238,7 +211,7 @@ typedef struct
 
 //Moller-Trumbore
 //t u v = x y z
-bool does_collide_triangle(vec3 tri[3], vec3* hit_coords, ray r)
+bool does_collide_triangle(vec3 tri[4], vec3* hit_coords, ray r) //tri has extra for padding
 {
     vec3 ab = tri[1] - tri[0];
     vec3 ac = tri[2] - tri[0];
@@ -246,7 +219,7 @@ bool does_collide_triangle(vec3 tri[3], vec3* hit_coords, ray r)
     vec3 pvec = cross(r.dir, ac); //Triple product
     float det = dot(ab, pvec);
 
-    if (det < EPSILON) // Behind or close to parallel. NOTE: TEMP FABS
+    if (det < EPSILON) // Behind or close to parallel.
         return false;
 
     float invDet = 1.f / det;
@@ -267,21 +240,12 @@ bool does_collide_triangle(vec3 tri[3], vec3* hit_coords, ray r)
     hit_coords->x = dot(ac, qvec) * invDet;
 
     return true; //goose
-
 }
 
 
 /**********/
 /* Sphere */
 /**********/
-typedef struct //32 bytes (one word)
-{
-    vec3 pos;
-    //4 bytes padding
-    float radius;
-    int material_index;
-    //8 bytes padding
-} __attribute__ ((aligned (16))) sphere;
 
 bool does_collide_sphere(sphere s, ray r, float *dist)
 {
@@ -315,15 +279,6 @@ bool does_collide_sphere(sphere s, ray r, float *dist)
 /* Plane */
 /*********/
 
-typedef struct plane
-{
-    vec3 pos;
-    vec3 normal;
-
-    int material_index;
-} __attribute__ ((aligned (16))) plane;
-
-
 bool does_collide_plane(plane p, ray r, float *dist)
 {
     float denom = dot(r.dir, p.normal);
@@ -348,91 +303,94 @@ bool does_collide_plane(plane p, ray r, float *dist)
 /*                  */
 /********************/
 
-typedef struct
-{
 
-    mat4 model;
-
-    vec3 max;
-    vec3 min;
-
-    int index_offset;
-    int num_indices;
-
-
-    int material_index;
-} __attribute__((aligned (32))) mesh; //TODO: align with cpu NOTE: I don't think we need 32
-
-bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist,
-                            const __global int* indices,
-                            const __global vec3* vertices,
-                            const __global vec3* normals)
+bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist, scene s,
+                            MESH_SCENE_DATA_PARAM)
 {
     //TODO: k-d trees
     *dist = FAR_PLANE;
     float min_t = FAR_PLANE;
     vec3 hit_coord; //NOTE: currently unused
     ray r2 = r;
-    if(!hitBoundingBox((hack_vec3)collider.min, (hack_vec3)collider.max,
-                       (hack_vec3)r.orig, (hack_vec3) r.dir, (hack_vec3) hit_coord))
+    if(!hitBoundingBox(collider.min, collider.max, r))
+    {
         return false;
+    }
 
-    //return false;
     for(int i = 0; i < collider.num_indices/3; i++) // each ivec3
     {
-        vec3 tri[3]; //TODO: optmimze
+        vec3 tri[4];
 
         //get vertex (first element of each index)
-        int idx_0 = indices[(i*3+collider.index_offset+0)*3]; //TODO: add offset
-        int idx_1 = indices[(i*3+collider.index_offset+1)*3]; //
-        int idx_2 = indices[(i*3+collider.index_offset+2)*3]; //
 
-        tri[0] = vertices[idx_0];
-        tri[1] = vertices[idx_1];
-        tri[2] = vertices[idx_2];
+        int4 idx_0 = read_imagei(indices, i*3+collider.index_offset+0);
+        int4 idx_1 = read_imagei(indices, i*3+collider.index_offset+1);
+        int4 idx_2 = read_imagei(indices, i*3+collider.index_offset+2);
 
-        /*printf("%i/%i : (%.2f %.2f %.2f) (%.2f %.2f %.2f) (%.2f %.2f %.2f)\n", i, collider.num_indices/3,
-               tri[0].x, tri[0].y, tri[0].z,
-               tri[1].x, tri[1].y, tri[1].z,
-               tri[2].x, tri[2].y, tri[2].z);*/
+        tri[0] = read_imagef(vertices, idx_0.x).xyz;
+        tri[1] = read_imagef(vertices, idx_1.x).xyz;
+        tri[2] = read_imagef(vertices, idx_2.x).xyz;
 
 
-        vec3 bc_hit_coords; //t u v = x y z
-        if(does_collide_triangle(tri, &bc_hit_coords, r))
+
+        vec3 bc_hit_coords = (vec3)(0.f); //t u v = x y z
+        if(does_collide_triangle(tri, &bc_hit_coords, r) &&
+           bc_hit_coords.x<min_t && bc_hit_coords.x>0)
         {
-            //printf("NUT_0!! %f\n", bc_hit_coords.x);
-            if(bc_hit_coords.x<min_t && bc_hit_coords.x>0)
-            {
-
-                min_t = bc_hit_coords.x; //t (distance along direction)
-
-                int nidx_0 = indices[(i*3+collider.index_offset+0)*3+1]; //TODO: add offset
-                int nidx_1 = indices[(i*3+collider.index_offset+1)*3+1]; //
-                int nidx_2 = indices[(i*3+collider.index_offset+2)*3+1]; //
-
-                vec3 anorm = normals[nidx_0]*(1-bc_hit_coords.y-bc_hit_coords.z); //w
-                vec3 bnorm = normals[nidx_1]*bc_hit_coords.y; //u
-                vec3 cnorm = normals[nidx_2]*bc_hit_coords.z; //v
-
-
-
-                *normal = anorm+bnorm+cnorm;
-                /*printf("TEST: %f %f %f: %f\n",
-                       bc_hit_coords.y, bc_hit_coords.z,
-                       1-(bc_hit_coords.y+bc_hit_coords.z),
-                       bc_hit_coords.y+bc_hit_coords.z+1-(bc_hit_coords.y+bc_hit_coords.z)
-                       );*/
-                //printf("TEST: %f\n", fabs((normals[nidx_0]).x)+fabs((normals[nidx_0]).y)+fabs((normals[nidx_0]).z));
-
-            }
+            min_t = bc_hit_coords.x; //t (distance along direction)
+            *normal =
+                read_imagef(normals, idx_0.y).xyz*(1-bc_hit_coords.y-bc_hit_coords.z)+
+                read_imagef(normals, idx_1.y).xyz*bc_hit_coords.y+
+                read_imagef(normals, idx_2.y).xyz*bc_hit_coords.z;
+                //break; //convex optimization
         }
 
     }
 
 
     *dist = min_t;
-    //if(r.dir.z>0&&min_t==FAR_PLANE)
-    //    printf("fuck but good\n");
+    return min_t != FAR_PLANE;
+
+}
+
+bool does_collide_with_mesh_alt(mesh collider, ray r, vec3* normal, float* dist, scene s,
+                            MESH_SCENE_DATA_PARAM)
+{
+    *dist = FAR_PLANE;
+    float min_t = FAR_PLANE;
+    vec3 hit_coord; //NOTE: currently unused
+    ray r2 = r;
+
+    for(int i = 0; i < SCENE_NUM_INDICES/3; i++)
+    {
+        vec3 tri[4];
+
+        //get vertex (first element of each index)
+
+        int4 idx_0 = read_imagei(indices, i*3+collider.index_offset+0);
+        int4 idx_1 = read_imagei(indices, i*3+collider.index_offset+1);
+        int4 idx_2 = read_imagei(indices, i*3+collider.index_offset+2);
+
+        tri[0] = read_imagef(vertices, idx_0.x).xyz;
+        tri[1] = read_imagef(vertices, idx_1.x).xyz;
+        tri[2] = read_imagef(vertices, idx_2.x).xyz;
+
+
+        vec3 bc_hit_coords = (vec3)(0.f); //t u v = x y z
+        if(does_collide_triangle(tri, &bc_hit_coords, r) &&
+           bc_hit_coords.x<min_t && bc_hit_coords.x>0)
+        {
+                min_t = bc_hit_coords.x; //t (distance along direction)
+                *normal =
+                    read_imagef(normals, idx_0.y).xyz*(1-bc_hit_coords.y-bc_hit_coords.z)+
+                    read_imagef(normals, idx_1.y).xyz*bc_hit_coords.y+
+                    read_imagef(normals, idx_2.y).xyz*bc_hit_coords.z;
+        }
+
+    }
+
+
+    *dist = min_t;
     return min_t != FAR_PLANE;
 
 }
@@ -444,12 +402,7 @@ bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist,
 /************************/
 
 
-bool collide_meshes(ray r, collision_result* result,
-                    const __global material* material_buffer,
-                    const __global mesh* meshes,
-                    const __global int*  indices,
-                    const __global vec3* vertices,
-                    const __global vec3* normals)
+bool collide_meshes(ray r, collision_result* result, scene s, MESH_SCENE_DATA_PARAM)
 {
 
     float dist = FAR_PLANE;
@@ -458,11 +411,10 @@ bool collide_meshes(ray r, collision_result* result,
 
     for(int i = 0; i < SCENE_NUM_MESHES; i++)
     {
-        mesh current_mesh = meshes[i];
+        mesh current_mesh = s.meshes[i];
         float local_dist = FAR_PLANE;
         vec3 normal;
-        if(does_collide_with_mesh(current_mesh, r, &normal, &local_dist,
-                                  indices, vertices, normals))
+        if(does_collide_with_mesh(current_mesh, r, &normal,  &local_dist, s, MESH_SCENE_DATA))
         {
 
             if(local_dist<dist)
@@ -471,7 +423,7 @@ bool collide_meshes(ray r, collision_result* result,
                 result->dist = dist;
                 result->normal = normal;
                 result->point = (r.dir*dist)+r.orig;
-                result->mat = material_buffer[current_mesh.material_index];
+                result->mat = s.material_buffer[current_mesh.material_index];
                 result->did_hit = true;
             }
         }
@@ -479,10 +431,7 @@ bool collide_meshes(ray r, collision_result* result,
     return result->did_hit;
 }
 
-bool collide_primitives(ray r, collision_result* result,
-                        const __global material* material_buffer,
-                        const __global sphere* spheres,
-                        const __global plane* planes)
+bool collide_primitives(ray r, collision_result* result, scene s)
 {
 
     float dist = FAR_PLANE;
@@ -490,7 +439,7 @@ bool collide_primitives(ray r, collision_result* result,
     result->dist = FAR_PLANE;
     for(int i = 0; i < SCENE_NUM_SPHERES; i++)
     {
-        sphere current_sphere = spheres[i];//get_sphere(spheres, i);
+        sphere current_sphere = s.spheres[i];//get_sphere(spheres, i);
         float local_dist = FAR_PLANE;
         if(does_collide_sphere(current_sphere, r, &local_dist))
         {
@@ -498,17 +447,17 @@ bool collide_primitives(ray r, collision_result* result,
             {
                 dist = local_dist;
                 result->did_hit = true;
-                result->dist = dist;
-                result->point  = r.dir*dist+r.orig;
-                result->normal = normalize(result->point - current_sphere.pos);
-                result->mat = material_buffer[current_sphere.material_index];
+                result->dist    = dist;
+                result->point   = r.dir*dist+r.orig;
+                result->normal  = normalize(result->point - current_sphere.pos);
+                result->mat     = s.material_buffer[current_sphere.material_index];
             }
         }
     }
 
     for(int i = 0; i < SCENE_NUM_PLANES; i++)
     {
-        plane current_plane = planes[i];//get_plane(planes, i);
+        plane current_plane = s.planes[i];//get_plane(planes, i);
         float local_dist =  FAR_PLANE;
         if(does_collide_plane(current_plane, r, &local_dist))
         {
@@ -516,10 +465,10 @@ bool collide_primitives(ray r, collision_result* result,
             {
                 dist = local_dist;
                 result->did_hit = true;
-                result->dist   = dist;
-                result->point  = r.dir*dist+r.orig;
-                result->normal = current_plane.normal;
-                result->mat = material_buffer[current_plane.material_index];
+                result->dist    = dist;
+                result->point   = r.dir*dist+r.orig;
+                result->normal  = current_plane.normal;
+                result->mat     = s.material_buffer[current_plane.material_index];
             }
         }
     }
@@ -527,42 +476,35 @@ bool collide_primitives(ray r, collision_result* result,
     return dist != FAR_PLANE;
 }
 
-bool collide_all(ray r, collision_result* result,
-                 const __global material* material_buffer,
-                 const __global sphere* spheres,
-                 const __global plane* planes,
-                 const __global mesh* meshes,
-                 const __global int*  indices,
-                 const __global vec3* vertices,
-                 const __global vec3* normals)
+bool collide_all(ray r, collision_result* result, scene s, MESH_SCENE_DATA_PARAM)
 {
     float dist = FAR_PLANE;
-    if(collide_primitives(r, result, material_buffer, spheres, planes))
+    if(collide_primitives(r, result, s))
         dist = result->dist;
 
     collision_result m_result;
-    if(collide_meshes(r, &m_result, material_buffer, meshes, indices, vertices, normals))
+    if(collide_meshes(r, &m_result, s, MESH_SCENE_DATA))
         if(m_result.dist < dist)
             *result = m_result;
 
     return result->did_hit;
 }
+/******************************************/
+/* NOTE: Irradiance Caching is Incomplete */
+/******************************************/
+
 /**********************/
 /* Irradiance Caching */
 /**********************/
 
+__kernel void ic_hemisphere_sample(
 
-/* typedef struct */
-/* { */
-/*     vec3 pos; */
-/*     size_t left, right; //pointers within buffer */
+    )
+{
 
-/*     //Irradiance cache */
-/*     vec3 irradiance; */
-/*     vec3 normal; */
-/*     float angle_factor; */
 
-/* } __attribute__((aligned (16)))  ic_kd_node; */
+
+}
 
 __kernel void ic_screen_textures(
     __write_only image2d_t pos_tex,
@@ -575,10 +517,17 @@ __kernel void ic_screen_textures(
     const __global sphere* spheres,
     const __global plane* planes,
     const __global mesh* meshes,
-    const __global int* indices,
-    const __global vec3* vertices,
-    const __global vec3* normals)
+    image1d_t indices,
+    image1d_t vertices,
+    image1d_t normals)
 {
+    scene s;
+    s.material_buffer = material_buffer;
+    s.spheres         = spheres;
+    s.planes          = planes;
+    s.meshes          = meshes;
+
+
     int id = get_global_id(0);
     int x  = id%width;
     int y  = id/width;
@@ -592,8 +541,7 @@ __kernel void ic_screen_textures(
     r.dir.z = ray_buffer[ray_offset+2];
 
     collision_result result;
-    if(!collide_all(r, &result, material_buffer, spheres, planes, meshes, indices,
-                    vertices, normals))
+    if(!collide_all(r, &result, s, MESH_SCENE_DATA))
     {
         write_imagef(pos_tex, (int2)(x,y), (vec4)(0));
         write_imagef(nrm_tex, (int2)(x,y), (vec4)(0));
@@ -759,13 +707,18 @@ __kernel void mip_reduce( //not the best
     write_imagef(out_tex, (int2)(x,y), p00+p01+p10+p11/4.f);
 }
 
-vec4 shade(collision_result result) //NOTE: Temp shitty phong
+vec4 shade(collision_result result, scene s, MESH_SCENE_DATA_PARAM)
 {
-    const vec3 light_pos = (vec3)(2,5,-1);
+    const vec3 light_pos = (vec3)(1,2, 0);
     vec3 nspace_light_dir = normalize(light_pos-result.point);
     vec4 test_lighting = (vec4) (clamp((float)dot(result.normal, nspace_light_dir), 0.0f, 1.0f));
-    test_lighting *= (vec4)(result.mat.colour, 1.0f);
-    return test_lighting;
+    ray r;
+    r.dir  = nspace_light_dir;
+    r.orig = result.point + nspace_light_dir*0.01f;
+    collision_result _cr;
+    bool visible = !collide_all(r, &_cr, s, MESH_SCENE_DATA);
+    //test_lighting *= (vec4)(result.mat.colour, 1.0f);
+    return visible*test_lighting/2;
 }
 
 
@@ -777,9 +730,9 @@ __kernel void cast_ray_test(
     const __global plane* planes,
 //Mesh
     const __global mesh* meshes,
-    const __global int* indices,
-    const __global vec3* vertices,
-    const __global vec3* normals,
+    image1d_t indices,
+    image1d_t vertices,
+    image1d_t normals,
     /* const __global vec2* texcoords, */
     /* , */
 
@@ -788,6 +741,12 @@ __kernel void cast_ray_test(
     const unsigned int height,
     const vec4 pos)
 {
+    scene s;
+    s.material_buffer = material_buffer;
+    s.spheres         = spheres;
+    s.planes          = planes;
+    s.meshes          = meshes;
+
     const vec4 sky = (vec4) (0.2, 0.8, 0.5, 0);
     //return;
     int id = get_global_id(0);
@@ -808,13 +767,12 @@ __kernel void cast_ray_test(
     //out_tex[x+y*width] = get_colour_signed((vec4)(r.dir,0));
     //out_tex[x+y*width] = get_colour_signed((vec4)(1,1,0,0));
     collision_result result;
-    if(!collide_all(r, &result, material_buffer, spheres, planes, meshes, indices,
-                   vertices, normals))
+    if(!collide_all(r, &result, s, MESH_SCENE_DATA))
     {
         out_tex[x+y*width] = get_colour( sky );
         return;
     }
-    vec4 colour = shade(result);
+    vec4 colour = shade(result, s, MESH_SCENE_DATA);
 
 
     #define NUM_REFLECTIONS 2
@@ -827,17 +785,16 @@ __kernel void cast_ray_test(
         if(i==0)
         {
             rays[i].orig = result.point + result.normal * 0.0001f; //NOTE: BIAS
-            rays[i].dir  = reflect(r.dir, result.normal);//reflect(r.dir, result.norm);
+            rays[i].dir  = reflect(r.dir, result.normal);
         }
         else
         {
             rays[i].orig = results[i-1].point + results[i-1].normal * 0.0001f; //NOTE: BIAS
-            rays[i].dir  = reflect(rays[i-1].dir, results[i-1].normal);//reflect(r.dir, result.norm);
+            rays[i].dir  = reflect(rays[i-1].dir, results[i-1].normal);
         }
-        if(collide_all(rays[i], results+i, material_buffer, spheres,
-                       planes, meshes, indices, vertices, normals))
+        if(collide_all(rays[i], results+i, s, MESH_SCENE_DATA))
         {
-            colours[i] = shade(results[i]);
+            colours[i] = shade(results[i], s, MESH_SCENE_DATA);
         }
         else
         {
@@ -848,32 +805,21 @@ __kernel void cast_ray_test(
     }
     for(int i = early_exit_num-1; i > -1; i--)
     {
-        //if(i==0)
-            //{
         if(i==NUM_REFLECTIONS-1)
             colours[i] = mix(colours[i], sky, results[i].mat.reflectivity);
 
         else
             colours[i] = mix(colours[i], colours[i+1], results[i].mat.reflectivity);
 
-
-            //}
-            //else
-            //{
-
-            //}
     }
 
     colour = mix(colour, colours[0],  result.mat.reflectivity);
 
-    out_tex[x+y*width] = get_colour( colour );
-
-    //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
-
+    out_tex[offset] = get_colour( colour );
 }
 
 
-//NOTE: it might be faster to make the ray buffer a multiple of 4 just to fit word size...
+//NOTE: it might be faster to make the ray buffer a multiple of 4 just to align with words...
 __kernel void generate_rays(
     __global float* out_tex,
     const unsigned int width,
@@ -906,8 +852,6 @@ __kernel void generate_rays(
 
 vec3 uniformSampleHemisphere(const float r1, const float r2)
 {
-    // cos(theta) = r1 = y
-    // cos^2(theta) + sin^2(theta) = 1 -> sin(theta) = srtf(1 - cos^2(theta))
     float sinTheta = sqrt(1 - r1 * r1);
     float phi = 2 * M_PI * r2;
     float x = sinTheta * cos(phi);
@@ -926,10 +870,10 @@ vec3 cosineSampleHemisphere(float u1, float u2, vec3 normal)
 
     /* use the coordinte frame and random numbers to compute the next ray direction */
     return normalize(u * cos(theta)*r + v*sin(theta)*r + w*sqrt(1.0f - u1));
-
 }
 
-#define NUM_BOUNCES 4
+
+#define NUM_BOUNCES 8
 #define NUM_SAMPLES 64
 __kernel void path_trace(
     __global vec4* out_tex,
@@ -939,27 +883,33 @@ __kernel void path_trace(
     const __global plane* planes,
 //Mesh
     const __global mesh* meshes,
-    const __global int* indices,
-    const __global vec3* vertices,
-    const __global vec3* normals,
+    image1d_t indices,
+    image1d_t vertices,
+    image1d_t normals,
     /* const __global vec2* texcoords, */
-    /* , */
     const unsigned int width,
-    const unsigned int height,
     const vec4 pos,
     unsigned int magic)
 {
+    scene s;
+    s.material_buffer = material_buffer;
+    s.spheres         = spheres;
+    s.planes          = planes;
+    s.meshes          = meshes;
+
+
     const vec4 sky = (vec4) (0.16, 0.2, 0.2, 0);
     //return;
-    int id = get_global_id(0);
-    int x  = id%width;
-    int y  = id/width;
-    int offset = x+y*width;
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    //int x  = id%width+ get_global_offset(0)%total_width;
+    //int y  = id/width/* + get_global_offset(0)/total_width*/;
+    int offset = (x+y*width);
     int ray_offset = offset*3;
 
     ray r;
     r.orig = pos.xyz;
-    r.dir.x = ray_buffer[ray_offset]; //NOTE: unoptomized memory access.
+    r.dir.x = ray_buffer[ray_offset]; //NOTE: unoptimized memory access.
     r.dir.y = ray_buffer[ray_offset+1];
     r.dir.z = ray_buffer[ray_offset+2];
 
@@ -970,60 +920,64 @@ __kernel void path_trace(
 		unsigned int ui;
 	} res;
 
-    res.f = (float)magic*M_PI+x;//get some decimals.
+    res.f = (float)magic*M_PI+x;//fill up the mantissa.
     unsigned int seed1 = res.ui + (int)(sin((float)x)*7.f);
 
-    res.f = (float)magic*M_PI+y;//get some decimals.
-    unsigned int seed2 = res.ui + (int)(sin((float)y)*7.f);
+    res.f = (float)magic*M_PI+y;
+    unsigned int seed2 = y + (int)(sin((float)res.ui)*7.f);
 
-    //unsigned int seed1 = (int)((magic+1)%x)*7+magic+x/*sin((float)magic))*/,
-    //    seed2 = (int)((magic+1)%y)*7+magic+y/*cos((float)magic))*/;
+    collision_result initial_result;
+    if(!collide_all(r, &initial_result, s, MESH_SCENE_DATA))
+    {
+        out_tex[x+y*width] = sky;
+        return;
+    }
+
     vec3 fin_colour = (vec3)(0.0f, 0.0f, 0.0f);
     for(int i = 0; i < NUM_SAMPLES; i++)
     {
         vec3 accum_color = (vec3)(0.0f, 0.0f, 0.0f);
         vec3 mask        = (vec3)(1.0f, 1.0f, 1.0f);
-        ray sr = r;
+        ray sr;
+        float rand1 = get_random(&seed1, &seed2);
+        float rand2 = get_random(&seed1, &seed2);
 
+        vec3 sample_dir =  cosineSampleHemisphere(rand1, rand2, initial_result.normal);
+        sr.orig = initial_result.point + initial_result.normal * 0.0001f; //sweet spot for epsilon
+        sr.dir = sample_dir;
+        mask *= initial_result.mat.colour;
         for(int bounces = 0; bounces < NUM_BOUNCES; bounces++)
         {
             collision_result result;
-            if(!collide_all(sr, &result, material_buffer, spheres, planes, meshes, indices,
-                            vertices, normals))
+            if(!collide_all(sr, &result, s, MESH_SCENE_DATA))
             {
-                accum_color += mask * sky.xyz;//(vec3) (1.f,1.f,1.f);//(vec3)(0.15f, 0.15f, 0.25f);
+                accum_color += mask * sky.xyz;
                 break;
             }
 
 
-            float rand1 = get_random(&seed1, &seed2);
-            float rand2 = get_random(&seed1, &seed2); //seed but even more seedy :)
-            // float3 normal_facing = dot(result.normal, sr.dir) < 0.0f ? result.normal : result.normal * (-1.0f);
+            rand1 = get_random(&seed1, &seed2);
+            rand2 = get_random(&seed1, &seed2);
 
-
-            vec3 sample_dir =  cosineSampleHemisphere(rand1, rand2, result.normal);
+            sample_dir =  cosineSampleHemisphere(rand1, rand2, result.normal);
 
             sr.orig = result.point + result.normal * 0.0001f; //sweet spot for epsilon
             sr.dir = sample_dir;
 
+            //NOTE: janky emission, if reflectivity is 1 emission is 2 (only for tests)
             accum_color += mask * (float)(result.mat.reflectivity==1.)*2; //NOTE: EMMISION
 
 
             mask *= result.mat.colour;
 
             mask *= dot(sample_dir, result.normal);
-
-            //vec4 colour = shade(result);
-
         }
+        accum_color = clamp(accum_color, 0.f, 1.f);
 
-        fin_colour += clamp(accum_color,0.f,1.f) * (1.f/NUM_SAMPLES);
+        fin_colour += accum_color * (1.f/NUM_SAMPLES);
     }
 
-    //   colour = mix(colour, colours[0],  result.mat.reflectivity);
-
-    out_tex[x+y*width] = (vec4) (fin_colour, 0);//get_colour((vec4) (fin_colour, 0) );
-    //THIS EMPTY LINE IS NECESSARY AND PREVENTS IT FROM CRASHING (not joking) PLS HELP NVIDIA.
+    out_tex[offset] = (vec4)(fin_colour, 0);
 
 }
 
@@ -1041,7 +995,6 @@ __kernel void buffer_average(
     int y  = id/width;
     int offset = (x + y * width);
 
-    //t_tex[offset] = (char4) (mi( (float4)fresh_frame_tex[offset], (float4)out_tex[offset], (float)sample/255))
 
     float4 temp = mix((float4)(
                           (float)fresh_frame_tex[offset].x,
@@ -1079,7 +1032,8 @@ __kernel void f_buffer_average(
     int x  = id%width;
     int y  = id/width;
     int offset = (x + y * width);
-    out_tex[offset] = mix(fresh_frame_tex[offset], out_tex[offset], ((float)sample+1.f)/(float)num_samples);
+    out_tex[offset] = mix(fresh_frame_tex[offset], out_tex[offset],
+                          ((float)sample)/(float)num_samples);
 }
 
 __kernel void f_buffer_to_byte_buffer(
@@ -1092,6 +1046,5 @@ __kernel void f_buffer_to_byte_buffer(
     int x  = id%width;
     int y  = id/width;
     int offset = (x + y * width);
-    //if(fresh_frame_tex[offset].x!=fresh_frame_tex[offset].y)printf("n (%f,%f,%f)\n", fresh_frame_tex[offset].x,fresh_frame_tex[offset].y,fresh_frame_tex[offset].z);
     out_tex[offset] = get_colour(fresh_frame_tex[offset]);
 }

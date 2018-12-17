@@ -1,9 +1,9 @@
 #pragma once
 #include <stdbool.h>
 
-typedef int   ivec3[3];
+typedef int   ivec3[4]; //1 int padding
 typedef float vec2[2];
-typedef float vec3[4]; //Shhhh....
+typedef float vec3[4]; //1 float padding
 typedef float vec4[4];
 typedef float mat4[16];
 

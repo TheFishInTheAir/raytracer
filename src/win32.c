@@ -106,7 +106,7 @@ void win32_update_window(HDC device_context, HWND win, int width, int height)
     int window_width  = width;//window_rect.right - window_rect.left;
 
 
-    //TODO: Replace with BitBlt this is way too slow... (we don't even need scaling);
+    //TODO: Replace with BitBlt this is way too slow... (we don't even need the scaling);
     StretchDIBits(device_context,
                   /* x, y, width, height, */
                   /* x, y, width, height, */
@@ -197,7 +197,6 @@ int _WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     ctx->instance = hInstance;
     ctx->nCmdShow = nCmdShow;
-    //Step 1: Registering the Window Class
     ctx->wc.cbSize        = sizeof(WNDCLASSEX);
     ctx->wc.style         = CS_OWNDC|CS_HREDRAW|CS_VREDRAW;
     ctx->wc.lpfnWndProc   = WndProc;
@@ -226,7 +225,7 @@ int _WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 int main()
 {
-    printf("JANK WINMAIN OVERRIDE\n");
+    //printf("JANKY WINMAIN OVERRIDE\n");
     return _WinMain(GetModuleHandle(NULL), NULL, GetCommandLineA(), SW_SHOWNORMAL);
 }
 
@@ -313,7 +312,7 @@ int win32_get_time_mili()
 {
     SYSTEMTIME st;
     GetSystemTime(&st);
-    return (int) st.wMilliseconds+(st.wSecond*1000);
+    return (int) st.wMilliseconds+(st.wSecond*1000)+(st.wMinute*1000*60);
 }
 
 void win32_update()
@@ -355,7 +354,7 @@ DWORD WINAPI thread_func(void* data)
     {
         DWORD dwError;
         dwError = GetLastError();
-        printf(TEXT("Failed to enter background mode (%d)\n"), dwError);
+        printf(TEXT("Failed to change thread priority (%d)\n"), dwError);
     }
 
     thread_func_meta* meta = (thread_func_meta*) data;

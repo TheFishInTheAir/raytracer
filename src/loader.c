@@ -67,7 +67,6 @@ char* load_file(const char* url, long *ret_length)
     char * buffer = 0;
     long length;
     FILE * f = fopen (real_url, "rb");
-    //printf("TEST THING: '%s'.\n", real_url); TODO: Remove
 
     if (f)
     {
@@ -154,10 +153,10 @@ void load_obj(struct obj_list_elem elem, int* mesh_offset, int* vert_offset, int
         m->index_offset = *index_offset;
         m->num_indices  =  shape.length*3;
         m->material_index    =  elem.mat_index;
-        //memcpy(m->model, elem.model_mat, sizeof(float)*16);
+
         for(int f = 0; f < shape.length; f++)
         {
-            //pretty costly error lol NOTE: do something
+            //TODO: don't do this error check for each iteration
             if(elem.attrib.face_num_verts[f+shape.face_offset]!=3)
             {
                 //This should never get called because the mesh gets triangulated when loaded.

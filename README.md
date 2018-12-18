@@ -1,2 +1,2 @@
-# Raytracer
+# Path Tracer
 by Ethan Breit

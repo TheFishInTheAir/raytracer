@@ -1,2 +1,3 @@
 .emacs_saves/
-./build
+.build/
+.vs/

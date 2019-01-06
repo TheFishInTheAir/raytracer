@@ -1,3 +1,5 @@
 .emacs_saves/
+build/
 .build/
 .vs/
+.DS_Store

@@ -1,4 +1,6 @@
 #pragma once
+#include <alignment_util.h>
+
 #include <stdint.h>
 #include <parallel.h>
 #include <CL/opencl.h>

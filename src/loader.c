@@ -21,7 +21,7 @@ char* _get_os_pid_bin_path()
     {
         int ret;
         pid_t pid;
-        char path[PROC_PIDPATHINFO_MAXSIZE];
+        //char path[PROC_PIDPATHINFO_MAXSIZE];
 
         pid = getpid();
         ret = proc_pidpath(pid, path, sizeof(path));
@@ -31,7 +31,9 @@ char* _get_os_pid_bin_path()
             printf("Error: couldn't get bin path.\n");
             exit(1);
         }
+        *strrchr(path, FILE_SEP) = '\0';
     }
+    printf("TEST: %s !\n", path);
     return path;
 }
 #else

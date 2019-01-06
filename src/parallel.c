@@ -85,7 +85,7 @@ void create_context(rcl_ctx* ctx)
     int err = CL_SUCCESS;
 
 
-    int num_of_platforms;
+    unsigned int num_of_platforms;
 
     if (clGetPlatformIDs(0, NULL, &num_of_platforms) != CL_SUCCESS)
     {
@@ -100,13 +100,37 @@ void create_context(rcl_ctx* ctx)
     }
     bool found = false;
     for(int i=0; i<num_of_platforms; i++)
-        if(clGetDeviceIDs(platform_ids[i], CL_DEVICE_TYPE_GPU, 1, &ctx->device_id, NULL) == CL_SUCCESS)
-        {
-            found = true;
-            ctx->platform_id = platform_ids[i];
+    {
+        cl_device_id device_ids[8];
+        unsigned int num_devices = 0;
 
-            break;
+        //arbitrarily choosing 8 as the max gpus on a platform. TODO: ADD ERROR IF NUM DEVICES EXCEEDS 8
+        if(clGetDeviceIDs(platform_ids[i], CL_DEVICE_TYPE_GPU, 8, device_ids, &num_devices) == CL_SUCCESS)
+        {
+            for(int j = 0; j < num_devices; j++)
+            {
+                char* value;
+                size_t valueSize;
+                clGetDeviceInfo(device_ids[j], CL_DEVICE_NAME, 0, NULL, &valueSize);
+                value = (char*) malloc(valueSize);
+                clGetDeviceInfo(device_ids[j], CL_DEVICE_NAME, valueSize, value, NULL);
+                if(value[0]=='H'&&value[1]=='D') //janky but whatever
+                {
+                    printf("WARNING: Skipping over '%s' during device selection\n", value);
+                    free(value);
+                    continue;
+                }
+                free(value);
+
+                found = true;
+                ctx->platform_id = platform_ids[i];
+                ctx->device_id = device_ids[j];
+                break;
+            }
         }
+        if(found)
+            break;
+    }
     if(!found){
         printf("Error: Unable to get a GPU device_id\n");
         exit(1);
@@ -294,7 +318,7 @@ void load_program_raw(rcl_ctx* ctx, char* data,
     {
         int length = strlen(macros[i]);
         char* buf  = (char*) malloc(length+strlen(fin_data)+3);
-        sprintf(buf, "%s\n%s\0", macros[i], fin_data);
+        sprintf(buf, "%s\n%s", macros[i], fin_data);
         free(fin_data);
         fin_data = buf;
     }
@@ -312,7 +336,7 @@ void load_program_raw(rcl_ctx* ctx, char* data,
     if (err != CL_SUCCESS)
     {
         size_t len;
-        char buffer[2048*256];
+        char buffer[2048*25];
         buffer[0] = '!';
         buffer[1] = '\0';
 

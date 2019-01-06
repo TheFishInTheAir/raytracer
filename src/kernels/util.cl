@@ -52,8 +52,8 @@ unsigned int get_colour(vec4 col)
     outCol |= 0xff000000 & (unsigned int)(col.w*255)<<24;
     outCol |= 0x00ff0000 & (unsigned int)(col.x*255)<<16;
     outCol |= 0x0000ff00 & (unsigned int)(col.y*255)<<8;
+    //outCol |= 0x000000ff & (unsigned int)(col.z*255);
     outCol |= 0x000000ff & (unsigned int)(col.z*255);
-
 
     /* outCol |= 0xff000000 & min((unsigned int)(col.w*255), (unsigned int)255)<<24; */
     /* outCol |= 0x00ff0000 & min((unsigned int)(col.x*255), (unsigned int)255)<<16; */

@@ -9,6 +9,13 @@
 
 #ifdef WIN32
 #include <win32.h>
+#else
+#include <osx.h>
+#include <stdio.h>
+#include <termios.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/time.h>
 #endif
 
 //#include <time.h>
@@ -55,7 +62,7 @@ void cast_rays(int width, int height, uint32_t* bmap)
 
     int last_time = os_get_time_mili(abst);
 
-    const pitch = width*4;
+    const int pitch = width*4;
 
     int y = 0;
     int x = 0;
@@ -83,6 +90,35 @@ void cast_rays(int width, int height, uint32_t* bmap)
     printf("frame took: %i ms\n", os_get_time_mili(abst)-last_time);
 
 }
+
+#ifndef _WIN32
+char kbhit()
+{
+    static char initialised = false;
+    //NOTE: we are never going to need to actually echo the characters
+    if(!initialised)
+    {
+        initialised = true;
+        struct termios term, old;
+        tcgetattr(STDIN_FILENO, &old);
+        term = old;
+        term.c_lflag &= -(ICANON | ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &term);
+    }
+    struct timeval tv;
+    fd_set rdfs;
+
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+
+    FD_ZERO(&rdfs);
+    FD_SET(STDIN_FILENO, &rdfs);
+
+    select(STDIN_FILENO+1, &rdfs, NULL, NULL, &tv);
+    return FD_ISSET(STDIN_FILENO, &rdfs);
+}
+#endif
+
 
 bool should_run = true;
 bool should_pause = false;
@@ -120,7 +156,7 @@ void run(void* unnused_rn)
         scene* rscene = load_scene_json_url("scenes/path_test_2.rsc");
 
         rctx->stat_scene = rscene;
-        rctx->num_samples = 8;
+        rctx->num_samples = 64; //NOTE: add input option for this
 
         raytracer_prepass(rctx);
 
@@ -149,7 +185,7 @@ void run(void* unnused_rn)
 
             if(kbhit())
             {
-                switch (getch())
+                switch (getc(stdin))
                 {
                 case 'c':
                     exit(1);
@@ -177,7 +213,7 @@ void run(void* unnused_rn)
             printf("\rFrame took: %02i ms, average per 20 frames: %0.2f, avg fps: %03.2f (%d/%d)    ",
                    mili, _timer_average, 1000.0f/_timer_average,
                    rctx->current_sample, rctx->num_samples);
-
+            fflush(stdout);
             if(_timer_counter>20)
             {
                 _timer_counter = 0;
@@ -192,11 +228,12 @@ void run(void* unnused_rn)
 
 }
 
-
 int startup() //main function called from win32 abstraction
 {
 #ifdef WIN32
     abst = init_win32_abs();
+#else
+    abst = init_osx_abs();
 #endif
     os_start(abst);
     os_start_thread(abst, run, NULL);

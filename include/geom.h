@@ -1,4 +1,5 @@
 #pragma once
+#include <alignment_util.h>
 #include <stdbool.h>
 
 typedef int   ivec3[4]; //1 int padding
@@ -23,14 +24,14 @@ typedef struct ray
 /**********/
 
 //NOTE:  less memory efficient but aligns with opencl
-typedef W_ALIGN(16) struct sphere
+typedef W_ALIGN(16) struct //sphere
 {
     vec4 pos; //GPU stores all vec3s as vec4s in memory so we need the padding.
 
     float radius;
     int material_index;
 
-} U_ALIGN(16) sphere;
+}  U_ALIGN(16) sphere;
 
 
 float does_collide_sphere(sphere, ray);

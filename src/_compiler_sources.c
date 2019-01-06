@@ -1,3 +1,4 @@
+#define CL_TARGET_OPENCL_VERSION 120
 #include <math.h>
 #include <stdlib.h>
 
@@ -18,16 +19,18 @@
 
 #ifdef WIN32
 #include <win32.c>
+//#else
+//#include <osx.m>
 #endif
 
 //TODO: should put in a header
-#ifdef WIN32
+/*#ifdef WIN32
 #define W_ALIGN(x) __declspec( align (x) )
-#define U_ALIGN(x) /*nothing*/
+#define U_ALIGN(x) /*nothing*//*
 #else
-#define W_ALIGN(x) /*nothing*/
-#define U_ALIGN(x) __attribute__ ((aligned (x)));
-#endif
+#define W_ALIGN(x) /*nothing*//*
+#define U_ALIGN(x) __attribute__ (( aligned (x) ));
+#endif*/
 
 //#define _MEM_DEBUG //Enable verbose memory allocation, movement and freeing
 #include <debug.c>

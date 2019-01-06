@@ -1,4 +1,6 @@
 #pragma once
+#include <alignment_util.h>
+
 #include <CL/opencl.h>
 #include <geom.h>
 typedef struct _rt_ctx raytracer_context;

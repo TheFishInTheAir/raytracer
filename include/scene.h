@@ -1,4 +1,6 @@
 #pragma once
+#include <alignment_util.h>
+
 #include <vec.h>
 //typedef struct{} sphere;
 struct sphere;

@@ -2,7 +2,7 @@
 vec3 uniformSampleHemisphere(const float r1, const float r2)
 {
     float sinTheta = sqrt(1 - r1 * r1);
-    float phi = 2 * M_PI * r2;
+    float phi = 2 * M_PI_F * r2;
     float x = sinTheta * cos(phi);
     float z = sinTheta * sin(phi);
     return (vec3)(x, r1, z);
@@ -10,7 +10,7 @@ vec3 uniformSampleHemisphere(const float r1, const float r2)
 vec3 cosineSampleHemisphere(float u1, float u2, vec3 normal)
 {
     const float r = sqrt(u1);
-    const float theta = 2 * M_PI * u2;
+    const float theta = 2 * M_PI_F * u2;
 
     vec3 w = normal;
     vec3 axis = fabs(w.x) > 0.1f ? (vec3)(0.0f, 1.0f, 0.0f) : (vec3)(1.0f, 0.0f, 0.0f);
@@ -22,8 +22,8 @@ vec3 cosineSampleHemisphere(float u1, float u2, vec3 normal)
 }
 
 
-#define NUM_BOUNCES 8
-#define NUM_SAMPLES 64
+#define NUM_BOUNCES 4
+#define NUM_SAMPLES 16
 __kernel void path_trace(
     __global vec4* out_tex,
     const __global float* ray_buffer,
@@ -69,10 +69,10 @@ __kernel void path_trace(
 		unsigned int ui;
 	} res;
 
-    res.f = (float)magic*M_PI+x;//fill up the mantissa.
+    res.f = (float)magic*M_PI_F+x;//fill up the mantissa.
     unsigned int seed1 = res.ui + (int)(sin((float)x)*7.f);
 
-    res.f = (float)magic*M_PI+y;
+    res.f = (float)magic*M_PI_F+y;
     unsigned int seed2 = y + (int)(sin((float)res.ui)*7.f);
 
     collision_result initial_result;
@@ -125,9 +125,11 @@ __kernel void path_trace(
 
         fin_colour += accum_color * (1.f/NUM_SAMPLES);
     }
-
-    out_tex[offset] = (vec4)(fin_colour, 0);
-
+    #ifdef _WIN32
+    out_tex[offset] = (vec4)(fin_colour, 1);
+    #else
+    out_tex[offset] = (vec4)(fin_colour.zyx, 1);
+    #endif
 }
 
 
@@ -195,5 +197,6 @@ __kernel void f_buffer_to_byte_buffer(
     int x  = id%width;
     int y  = id/width;
     int offset = (x + y * width);
+
     out_tex[offset] = get_colour(fresh_frame_tex[offset]);
 }

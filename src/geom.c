@@ -2,7 +2,7 @@
 #define DEBUG_PRINT_VEC3(n, v) printf(n ": (%f, %f, %f)\n", v[0], v[1], v[2])
 
 
-inline bool solve_quadratic(float *a, float *b, float *c, float *x0, float *x1)
+bool solve_quadratic(float *a, float *b, float *c, float *x0, float *x1)
 {
     float discr = (*b) * (*b) - 4 * (*a) * (*c);
 
@@ -66,12 +66,12 @@ inline float does_collide_sphere(sphere s, ray r)
 
 inline float does_collide_plane(plane p, ray r)
 {
-    float denom = xv_dot3(r.dir, p.norm);
+    float denom = xv3_dot(r.dir, p.norm);
     if (denom > 1e-6)
     {
         vec3 l;
         xv_sub(l, p.pos, r.orig, 3);
-        float t = xv_dot3(l, p.norm) / denom;
+        float t = xv3_dot(l, p.norm) / denom;
         if (t >= 0)
             return -1.0;
         return t;

@@ -38,6 +38,12 @@ void raytracer_cl_prepass(raytracer_context* rctx)
     char* kernels[] = KERNELS;
 
     //Macros
+    //char os_macro[64];
+    #ifdef _WIN32
+    char os_macro[] = "#define _WIN32 1";
+    #else
+    char os_macro[] = "#define _OSX 1";
+    #endif
     char sphere_macro[64];
     sprintf(sphere_macro, "#define SCENE_NUM_SPHERES %i", rctx->stat_scene->num_spheres);
     char plane_macro[64];
@@ -48,14 +54,15 @@ void raytracer_cl_prepass(raytracer_context* rctx)
     sprintf(mesh_macro, "#define SCENE_NUM_MESHES %i", rctx->stat_scene->num_meshes);
     char material_macro[64];
     sprintf(material_macro, "#define SCENE_NUM_MATERIALS %i", rctx->stat_scene->num_materials);
-    char* macros[]  = {sphere_macro, plane_macro, mesh_macro, index_macro, material_macro};
+    char* macros[]  = {sphere_macro, plane_macro, mesh_macro, index_macro,
+                       material_macro, os_macro};
 
     {
 
         load_program_raw(rctx->rcl,
                          all_kernels_cl, //NOTE: Binary resource
                          kernels, NUM_KERNELS, rctx->program,
-                         macros, 5);
+                         macros, 6);
     }
     //Buffers
     rctx->cl_ray_buffer = clCreateBuffer(rctx->rcl->context,

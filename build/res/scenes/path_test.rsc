@@ -1,0 +1,99 @@
+{
+    "version":
+    {
+        "major":0,
+        "minor":1,
+        "type":"DEV"
+    },
+    "name":"Path Tracing Test Scene",
+
+
+    "materials":
+    [
+        {
+            "r":0.7,
+            "g":0.7,
+            "b":0.75,
+            "reflectivity":0.7
+        },
+        {
+            "r":0.7,
+            "g":0.7,
+            "b":0.75,
+            "reflectivity":1
+        },
+        {
+            "r":0.73,
+            "g":0.9411,
+            "b":0.819,
+            "reflectivity":0.05
+        },
+        {
+            "r":0.8588,
+            "g":0.352,
+            "b":0.2588,
+            "reflectivity":0.2
+        },
+        {
+            "r":1,
+            "g":1,
+            "b":1,
+            "reflectivity":0.1
+        }
+    ],
+
+    "meshes":
+    [
+    ],
+
+    "primitives":
+    {
+        "spheres":
+        [
+            {
+                "x":-0.4,
+                "y":7,
+                "z":-2,
+                "radius":4,
+                "mat_index":1
+            },
+            {
+                "x":0,
+                "y":-0.6,
+                "z":-2.7,
+                "radius":0.5,
+                "mat_index":3
+            },
+            {
+                "x":-2,
+                "y":0.2,
+                "z":-4,
+                "radius":1.7,
+                "mat_index":3
+            }
+        ],
+        "planes":
+        [
+            {
+                "x":0,
+                "y":-1,
+                "z":0,
+                "nx":0,
+                "ny":1,
+                "nz":0,
+
+                "mat_index":2
+            },
+            {
+                "x":0,
+                "y":0,
+                "z":-10,
+                "nx":0,
+                "ny":0,
+                "nz":1,
+
+                "mat_index":2
+            }
+        ]
+    }
+}

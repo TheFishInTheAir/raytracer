@@ -14,10 +14,10 @@ cp -R ../res ./
 clang -c -framework Cocoa ../src/osx.m -I../include -o osx.o
 clang -c ../src/_compiler_sources.c -I./ -I../libs -I../include -I../src -o ./_compiler_sources.o
 #ld  osx.obj _compiler_sources.obj -framework Cocoa -framework Foundation -framework OpenCL -execute -lc -L/usr/local/lib -lSystem -lto_library /Library/Developer/CommandLineTools/usr/lib/libLTO.dylib -o _good
-ld -arch x86_64 -macosx_version_min 10.14.0 -o _good -framework Cocoa -framework OpenCL osx.o _compiler_sources.o -lSystem -lc
+ld -arch x86_64 -macosx_version_min 10.14.0 -o _compiler_sources -framework Cocoa -framework OpenCL osx.o _compiler_sources.o -lSystem -lc
 
 #clang -v -framework Cocoa ../src/osx.m -I../include -o osx.exe
 
 popd
 
-./build/_good
+#./build/_compiler_sources

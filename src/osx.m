@@ -150,7 +150,7 @@ void initBitmapData(unsigned char* bmap, float offset, unsigned int width, unsig
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 {
     //exit(0);
-    printf("NUT\n");
+    //printf("NUT\n");
     return NSTerminateNow;
 
 }
@@ -158,7 +158,7 @@ void initBitmapData(unsigned char* bmap, float offset, unsigned int width, unsig
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
     //[NSApp stop:nil];
-    printf("NUT Butter\n");
+    //printf("NUT Butter\n");
     id menubar = [[NSMenu new] autorelease];
     id appMenuItem = [[NSMenuItem new] autorelease];
     [menubar addItem:appMenuItem];
@@ -255,7 +255,7 @@ void osx_enqueue_update() //TODO: implement, re-blit the bitmap
     dispatch_async(ctx->main_queue,
                    ^{
                        NSApp.windows[0].title =
-                           [NSString stringWithFormat:@"FUCK %f", offset];
+                           [NSString stringWithFormat:@"Pathtracer %f", offset];
                        CustomView* view = (CustomView*) NSApp.windows[0].contentView;
                        //NSImageView* test_img_view = (NSImageView*) test_view;
 

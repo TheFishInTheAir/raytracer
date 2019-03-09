@@ -1,0 +1,7 @@
+Windows:
+Run build.bat from a console with the visual studio command line tools. (VCVARS/VS Command Prompt).
+You can then use run.bat to run it or just use the actual _compiler_sources.exe executable.
+
+OSX:
+Use build.command, thats about it.
+You can run it by using the _compiler_sources executable.

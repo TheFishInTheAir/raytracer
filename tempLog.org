@@ -1,0 +1,19 @@
+#+TITLE: Offline Work Log
+#+AUTHOR: Ethan Breit
+
+* March 9, 2019
+  Was in the car all day, didn't have time to work.
+
+* March 10, 2019
+Just Finished implementing the O(N^2) version of SAH k-d tree construction in python
+Beginning to do the O(N log^2 N) implementation.
+Came into some bugs and wasn't able to fully finish implementation.
+Had a short work day because of a family outing.
+
+* March 11, 2019
+I have undivided work time today.
+Spent a couple hours debugging.
+Finally figured it out, stupid mistake. I have the O(N^2) implementation done.
+Implemented the O(N log^2 N) algorithm.
+I am feeling very tired and i'm not going to be able to do the O(N log N) today. I may try later ****UPDATE****
+Unfortunatley I have another 5 hour car ride back to Toronto tomorrow. Hopefully i'll be able to get some work done during the ride, but im not sure.

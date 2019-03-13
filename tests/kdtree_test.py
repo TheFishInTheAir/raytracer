@@ -135,6 +135,51 @@ class KDTree:
         else:
             return (CPR, 2) #2 is RIGHT
 
+    def FindPlaneAlg5(N, V, E):
+        bestC = 10000000
+        bestPSide = None
+        pInfo = None
+
+        NL = [None]*self.k
+        NP = [None]*self.k
+        NR = [None]*self.k
+        for k in range(self.k):
+            NL[k] = 0
+            NP[k] = 0
+            NR[k] = N
+        i = 0
+        LE = len(E)
+        while i < LE:
+            p = E[i] #(E[i].p, E[i].k) I THINK?
+            Ps = 0
+            Pe = 0
+            Pp = 0
+            while i < len(E) and E[i].k == p.k and E[i].b == p.b and E[i].eType == 0: #End
+                Pe += 1
+                i  += 1
+            while i < len(E) and E[i].k == p.k and E[i].b == p.b and E[i].eType == 1: #Planar
+                Pp += 1
+                i  += 1
+            while i < len(E) and E[i].k == p.k and E[i].b == p.b and E[i].eType == 2: #Start
+                Ps += 1
+                i  += 1
+            NP[p.k] =  Pp #Planar
+            NR[p.k] -= Pp #Planar
+            NR[p.k] -= Pe #End
+            dataSAH = SAH(p.k, p.b, V, NL[p.k], NR[p.k], NP[p.k]) # I THINK, THIS PAPER DOESN'T MAKE SENSE?
+            C = dataSAH[0]
+            side = dataSAH[1]
+            if C < bestC:
+                bestC = C
+                bestPSide = side
+                pInfo = p
+            NL[p.k] += Ps #Start
+            NL[p.k] += Pp #Planar
+            NP[p.k] = 0
+
+            return (pInfo, bestPSide)
+
+
 
     def N2SAHPartition(self, spheres, voxel):
         bestC = 10000000
@@ -506,25 +551,25 @@ def depthSpace(depth):
     for i in range(depth):
         print('    ', end='')
 
-def simdAdd(a, b, d):
+def simdAdd(a, b, d): #It would be ideal if it was actually simd... but I don't really have time to look up how to do simd python instructions so this will do.
     retVar = [None]*d
     for i in range(d):
         retVar[i] = a[i]+b[i]
     return tuple(retVar)
 
-def simdDiff(a, b, d):
+def simdDiff(a, b, d): #It would be ideal if it was actually simd... but I don't really have time to look up how to do simd python instructions so this will do.
     retVar = [None]*d
     for i in range(d):
         retVar[i] = b[i]-a[i]
     return tuple(retVar)
 
-def simdMoreThan(a, b, d):
+def simdMoreThan(a, b, d): #It would be ideal if it was actually simd... but I don't really have time to look up how to do simd python instructions so this will do.
     for i in range(d):
         if a[i] < b[i]:
             return False
     return True
 
-def simdAddScalar(a, b, d):
+def simdAddScalar(a, b, d): #It would be ideal if it was actually simd... but I don't really have time to look up how to do simd python instructions so this will do.
     retVar = [None]*d
     for i in range(d):
         retVar[i] = a[i]+b

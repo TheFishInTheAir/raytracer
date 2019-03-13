@@ -72,8 +72,6 @@ class Voxel:
                 return True
         return False
 
-    #def bToWorld(self, axis, b):
-    #    return self.maxV[0][axis] + (self.minV[axis] - self.maxV[axis])*b
 
     def divide(self, axis, b):
         divMin = list(self.minV)
@@ -97,8 +95,6 @@ class Voxel:
 
         divMin = list(self.minV)
         divMax = list(self.maxV)
-        #divMin[axis] = self.minV[axis] + (self.maxV[axis] - self.minV[axis])*b
-        #divMax[axis] = self.minV[axis] + (self.maxV[axis] - self.minV[axis])*(b)
         divMin[axis] = worldB
         divMax[axis] = worldB
 
@@ -194,7 +190,7 @@ class KDTree:
                 Ts = classify(spheres, VL, VR, p)
                 dataSAH = self.SAH(p[0], voxel.iLerp(p[1], p[0]),
                               voxel, len(Ts[0]), len(Ts[1]), len(Ts[2]))
-                #print(dataSAH[0])
+
                 if(dataSAH[0] <= bestC):
 
                     bestC = dataSAH[0]
@@ -203,7 +199,6 @@ class KDTree:
 
 
 
-        #print("GOAABA %f: %f" % (pInfo[3][1], bestC))
         if bestPSide == 1: #LEFT
             pInfo[2][0].extend(pInfo[2][2])
             return (pInfo[3], pInfo[2][0], pInfo[2][1]) # Plane, SpheresL, SpheresR

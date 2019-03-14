@@ -1,7 +1,11 @@
 from random import uniform
 import copy
+import sys
 import time
 print("This is just practice for implementing the k-d tree in c")
+
+EPSILON = 0.001 #TEST
+
 
 class Sphere:
     def __init__(self, x, y, z, size):
@@ -29,7 +33,8 @@ class Event:
         self.eType = eType
     def __lt__(self, other):
         return ((self.b < other.b) or
-                (self.b == other.b and self.eType < other.eType))
+                (self.b == other.b and self.eType < other.eType) or
+                (self.k > other.k))
 
 class KDTreeNode:
     def __init__(self, k):
@@ -66,9 +71,10 @@ class Voxel:
             self.minV[0], self.minV[1], self.minV[2],
             self.maxV[0], self.maxV[1], self.maxV[2])
 
-    def isPlanar(self):
+    def isPlanar(self): #Turns out this was the issue, TODO: add a check for the right axis
+        return False #TEMP
         for i in range(3):
-            if(self.minV[i]==self.maxV[i]):
+            if(self.maxV[i]-self.minV[i] <= 0.01):
                 return True
         return False
 
@@ -114,28 +120,122 @@ class KDTree:
         return perfLambda(NL,NR, PL, PR)*(self.KT + self.KI*(PL*NL + PR*NR))
 
     def SAH(self, axis, b, V, NL, NR, NP):
+        global EPSILON
         #print("SAH START")
         newVox = V.divide(axis, b)
         VL = newVox[0]
         VR = newVox[1]
         PL = SA_VOXEL(VL)/SA_VOXEL(V)
         PR = SA_VOXEL(VR)/SA_VOXEL(V)
-        #print(VL.getInfoStr())
+
+
+        if PL >= 1-EPSILON or PR > 1-EPSILON:
+            return [1000000000, 0] #arbitrarily large number
+        #print(VL.getInfoStr()+"      "+VR.getInfoStr())
         #print("PL/PR: %f %f" % (PL, PR))
         #print("VLSA/VRSA: %f %f" % (SA_VOXEL(VL), SA_VOXEL(VR)))
         CPL = self.C(PL, PR, NL+NP, NR)
         CPR = self.C(PL, PR, NL, NR+NP)
+
         #print("SAH END")
         if CPL < CPR:
             return (CPL, 1) #1 is LEFT
         else:
             return (CPR, 2) #2 is RIGHT
 
-    def FindPlaneAlg5(N, V, E):
+
+    def genEvents(self, spheres, voxel):
+        global EPSILON
+
+        E = []
+        for k in range(self.k):
+            for s in spheres:
+
+                sVox = Voxel([0,0,0], [0,0,0])
+                sVox.initFromSphere(s)
+                B = clip(sVox, voxel)
+
+
+                #if(B.isPlanar()):
+                #    E.append(Event(s, B.minV[k], k, 1)) #1 is Planar
+                #else:
+                #E.append(Event(s, B.minV[k]-EPSILON, k, 2)) #2 is Start
+                #E.append(Event(s, B.maxV[k]+EPSILON, k, 0)) #0 is End
+                E.append(Event(s, B.minV[k], k, 2)) #0 is End
+                E.append(Event(s, B.maxV[k], k, 0)) #0 is End
+        E.sort()
+        return E
+
+    #0 is Both
+    #1 is LeftOnly
+    #2 is RightOnly
+    def ClassifyLeftRightBothAlg6(self, S, E, p, pSide): # an event can also be used as a plane
+
+        for s in S:
+            s.side = 0
+        for e in E:
+            if   e.eType == 0 and e.k == p.k and e.b <= p.b: #0 is end
+                #Left Side
+                e.sphere.side = 1
+            elif e.eType == 2 and e.k == p.k and e.b >= p.b: # 2 Start
+                #Right Side
+                e.sphere.side = 2
+            elif e.eType == 1 and e.k == p.k:                #1 is planar
+                if  e.b < p.b or (e.b == p.b and pSide == 1): # 1 is LEFT
+                    #Left Side
+                    e.sphere.side = 1
+                if  e.b > p.b or (e.b == p.b and pSide == 2): # 2 is Right
+                    #Right Side
+                    e.sphere.side = 2
+        #SL = [e.sphere for e in EL if ]
+        #return (EL, ER)
+
+
+    def alg6Split(self, VL, VR, S, E, p, pSide): #this is not in pseduo code but is just described in the text
+        self.ClassifyLeftRightBothAlg6(S, E, p, pSide)
+        #Yeah, it could probably use less lists, but its only for testing :)
+        EL = []
+        ER = []
+
+        ELO = [] #Already sorted because they are a sublist of E
+        ERO = []
+        EBL = []
+        EBR = []
+        SB  = [] #Spheres that are in both
+        for e in E:
+            if e.sphere.side == 1: #Left Only
+                ELO.append(e)
+            elif e.sphere.side == 2: #Right Only
+                ERO.append(e)
+            elif e.sphere.side == 0: #BOTH!
+                #print("THING")
+                if e.sphere not in SB:
+                    SB.append(e.sphere)
+        EBL = self.genEvents(SB, VL)
+        EBR = self.genEvents(SB, VR)
+        #assert len(EBL) == len(SB)*2*3, "super done with this %d should be %d" % (len(EBL), len(SB)*2*3)
+        #assert len(EBR) == len(SB)*2*3, "super done with this %d should be %d" % (len(EBR), len(SB)*2*3)
+
+        #print("%d %d %d %d" % (len(E), len(ELO), len(ERO), len(SB)))
+
+
+        EL = mergeE(ELO, EBL)
+        ER = mergeE(ERO, EBR)
+        #assert len(EL) == len(EBL)+len(ELO), "I hate this %f = %f+%f %f" % (len(EL), len(EBL), len(ELO), len(EBL)+len(ELO))
+        #assert len(ER) == len(EBR)+len(ERO), "I hate this %f = %f+%f %f" % (len(ER), len(EBR), len(ERO), len(EBR)+len(ERO))
+
+        #print("%d %d" % (len(EL), len(ER)))
+
+        return (EL, ER)
+
+    def FindPlaneAlg5(self, N, V, E):
+        global EPSILON
+
+        DEBUG_INFO = ""
+
         bestC = 10000000
         bestPSide = None
         pInfo = None
-
         NL = [None]*self.k
         NP = [None]*self.k
         NR = [None]*self.k
@@ -144,36 +244,62 @@ class KDTree:
             NP[k] = 0
             NR[k] = N
         i = 0
-        LE = len(E)
-        while i < LE:
+        while i < len(E):
             p = E[i] #(E[i].p, E[i].k) I THINK?
             Ps = 0
             Pe = 0
             Pp = 0
-            while i < len(E) and E[i].k == p.k and E[i].b == p.b and E[i].eType == 0: #End
-                Pe += 1
+            while i < len(E) and E[i].b == p.b: #End
+                if E[i].eType == 0: #End
+                    Pe += 1
+                if E[i].eType == 2: #Start
+                    Ps += 1
                 i  += 1
-            while i < len(E) and E[i].k == p.k and E[i].b == p.b and E[i].eType == 1: #Planar
-                Pp += 1
-                i  += 1
-            while i < len(E) and E[i].k == p.k and E[i].b == p.b and E[i].eType == 2: #Start
-                Ps += 1
-                i  += 1
-            NP[p.k] =  Pp #Planar
-            NR[p.k] -= Pp #Planar
-            NR[p.k] -= Pe #End
-            dataSAH = SAH(p.k, p.b, V, NL[p.k], NR[p.k], NP[p.k]) # I THINK, THIS PAPER DOESN'T MAKE SENSE?
+
+            NR[p.k] -= Pe
+            #NP =  (NR+NL)-len(E)#Pp
+            dataSAH = self.SAH(p.k, V.iLerp(p.b, p.k), V, NL[p.k], NR[p.k], 0) # THIS IS BETTER AND DOESN'T NEED NP
+            #dataSAH = self.SAH(k, p.b, voxel, NL, NR, NP)
             C = dataSAH[0]
+
+            #newVox = V.divide(p.k, V.iLerp(p.b, p.k))
+            #VL = newVox[0]
+            #VR = newVox[1]
+            #DEBUG_INFO += ("%d %d %d %d %f %f Even mroe stuff: %f  VL: %f VR: %f VSA: %f LSA: %f RSA: %f\n" %
+            #                   (p.k, p.eType, NL[p.k], NR[p.k], C, p.b, V.iLerp(p.b, p.k),
+            #                    VL.maxV[p.k]-VL.minV[p.k], VR.maxV[p.k]-VR.minV[p.k],
+            #                    SA_VOXEL(V), SA_VOXEL(VL), SA_VOXEL(VR)))
+
+            #print("TEST: %f %d %d %d %d %f" % (V.iLerp(p.b, p.k), p.k, NL[p.k], NP[p.k], NR[p.k], C))
+            #print("V %d %d %d %f %f" % (p.k, NL[p.k], NR[p.k], C, p.b))
             side = dataSAH[1]
             if C < bestC:
+                #print("BLAMO")
+                #print(p)
+                # exit()
+                #print("Test2: %f %d %d %d %d %f" % (V.iLerp(p.b, p.k), p.k, NL[p.k], NP[p.k], NR[p.k], C))
+
                 bestC = C
                 bestPSide = side
                 pInfo = p
+                #print ("K:")
+                #print (pInfo)
             NL[p.k] += Ps #Start
-            NL[p.k] += Pp #Planar
-            NP[p.k] = 0
-
-            return (pInfo, bestPSide)
+            #NL[p.k] += Pp #Planar
+            #NP[p.k] = 0
+            #i += 1 #It would make more sense to not have this in context of this..
+        #if pInfo is None:
+        #    print("DUMP START")
+        #    print(DEBUG_INFO)
+        #    print(V.getInfoStr())
+        #    for e in E:
+        #        print(e.sphere)
+        #    print("DUMP END")
+        #    return (None, None)
+            #print("Alg5: %f %f %d   %f - %f  " % (V.iLerp(pInfo.b, pInfo.k), pInfo.b, pInfo.k, V.minV[pInfo.k], V.maxV[pInfo.k]))
+        #print("Alg5: %d %f %f" % (pInfo.k, pInfo.b, bestC))
+        return (pInfo, bestPSide)
+        #return pInfo, 0#, bestPSide)
 
 
 
@@ -181,15 +307,16 @@ class KDTree:
         bestC = 10000000
         bestPSide = None
         pInfo = None
+        #print("START")
         for s in spheres:
             for p in perfectSplits(s, voxel):
-
                 newV = voxel.divideWorld(p[0], p[1])
                 VL = newV[0]
                 VR = newV[1]
                 Ts = classify(spheres, VL, VR, p)
                 dataSAH = self.SAH(p[0], voxel.iLerp(p[1], p[0]),
                               voxel, len(Ts[0]), len(Ts[1]), len(Ts[2]))
+                #print("F3: %d %d %d %f %f" % (p[0], len(Ts[0]), len(Ts[1]), dataSAH[0], p[1]))
 
                 if(dataSAH[0] <= bestC):
 
@@ -197,8 +324,9 @@ class KDTree:
                     bestPSide = dataSAH[1]
                     pInfo = (VL, VR, Ts, p)
 
-
-
+        if(pInfo is None):
+            return (None, None, None)
+        #print("Nieve: %d %f %f" % (pInfo[3][0], pInfo[3][1], bestC))
         if bestPSide == 1: #LEFT
             pInfo[2][0].extend(pInfo[2][2])
             return (pInfo[3], pInfo[2][0], pInfo[2][1]) # Plane, SpheresL, SpheresR
@@ -215,7 +343,7 @@ class KDTree:
             return True
         if depth==self.maxRecurse:
             return True
-        if len(spheres)<=1:
+        if len(spheres)<=2: #WHY NOT
             return True
         #include other cases
         return False
@@ -227,10 +355,13 @@ class KDTree:
 
 
     def findPlaneAlg4(self, spheres, voxel):
+        global EPSILON
         bestC = 10000000
         bestPSide = None
         pInfo = None
 
+        DEBUG = False
+        DEBUG_INFO = ""
         for k in range(3):
             E = []
             for s in spheres:
@@ -238,48 +369,147 @@ class KDTree:
                 sVox.initFromSphere(s)
                 B = clip(sVox, voxel)
 
-                if(B.isPlanar()):
-                    E.append(Event(s, B.minV[k], k, 1)) #1 is Planar
-                else:
-                    E.append(Event(s, B.minV[k], k, 2)) #2 is Start
-                    E.append(Event(s, B.minV[k], k, 0)) #0 is End
+                #NOTE: NEED AN EPSILON
+                #if(B.isPlanar()):
+                #    E.append(Event(s, B.minV[k]-EPSILON, k, 1)) #1 is Planar
+                #else:
+                E.append(Event(s, B.minV[k]-EPSILON, k, 2)) #2 is Start
+                E.append(Event(s, B.maxV[k]+EPSILON, k, 0)) #0 is End
             E.sort()
 
             #Sweep over split candidates
             NL = 0
             NP = 0
             NR = len(spheres)
-
             i = 0
             while (i < len(E)):
                 p = E[i]
                 Ps = 0
                 Pe = 0
                 Pp = 0
-                while i < len(E) and E[i].b == p.b and E[i].eType == 0: #End
-                    Pe += 1
+                #if(p.eType == 0):
+                #    Pe += 1
+                #if(p.eType == 2):
+                #    Ps += 1
+                while i < len(E) and E[i].b == p.b: #End
+                    if E[i].eType == 0: #End
+                        Pe += 1
+                    if E[i].eType == 2: #Start
+                        Ps += 1
                     i  += 1
-                while i < len(E) and E[i].b == p.b and E[i].eType == 1: #Planar
-                    Pp += 1
-                    i  += 1
-                while i < len(E) and E[i].b == p.b and E[i].eType == 2: #Start
-                    Ps += 1
-                    i  += 1
-                NP =  Pp
-                NR -= Pp
+                #while i < len(E) and E[i].b == p.b and E[i].eType == 1: #Planar
+                #    Pp += 1
+                #    i  += 1
+                #while i < len(E) and E[i].b == p.b and E[i].eType == 2: #Start
+                #    Ps += 1
+                #    i  += 1
+                #NR -= Pp
                 NR -= Pe
+                #NP =  (NR+NL)-len(E)#Pp
+                dataSAH = self.SAH(p.k, voxel.iLerp(p.b, p.k), voxel, NL, NR, 0) # THIS IS BETTER AND DOESN'T NEED NP
 
-                dataSAH = self.SAH(k, p.b, voxel, NL, NR, NP)
+                #dataSAH = self.SAH(k, p.b, voxel, NL, NR, NP)
                 C = dataSAH[0]
+
+                #newVox = voxel.divide(k, voxel.iLerp(p.b, p.k))
+                #VL = newVox[0]
+                #VR = newVox[1]
+
+                #DEBUG_INFO += ("%d %d %d %f %f Even More: %f  VL: %f VR: %f VSA: %f LSA: %f RSA: %f\n" %
+                #               (k, NL, NR, C, p.b, voxel.iLerp(p.b, p.k),
+                #                VL.maxV[k]-VL.minV[k], VR.maxV[k]-VR.minV[k],
+                #                SA_VOXEL(voxel), SA_VOXEL(VL), SA_VOXEL(VR)))
+                #if DEBUG:
+                #    print("%d %d %d %f %f" % (k, NL, NR, C, p.b))
                 if C < bestC:
+                #    if dataSAH[1] == 0:
+                #        print("%f %f" % (C, bestC))
+                #        DEBUG = True
                     bestC = C
                     bestPSide = dataSAH[1]
                     pInfo = (k, p.b)
                 NL += Ps
-                NL += Pp
+                #NL += Pp
                 NP = 0
-                i += 1
+                #i += 1
+        if pInfo is None:
+            print("DUMP START")
+            print(DEBUG_INFO)
+            print(voxel.getInfoStr())
+            print("DUMP END")
+            #exit()
+        if DEBUG :
+            print("Algwhatever: %d %f %f" % (pInfo[0], pInfo[1], bestC))
+            
+            print("DEBUG END")
+
         return (pInfo, bestPSide)
+
+    #Algorithm 5 and 6 from https://webserver2.tecgraf.puc-rio.br/~psantos/inf2602_2008_2/pesquisa/hierarchy/kdtree/On%20building%20fast%20kd-Trees%20for%20Ray%20Tracing%20and%20on%20doing%20that%20in%20O(N%20log%20N).pdf
+    def _simpleInsertF56(self, spheres, voxel, depth):
+        E = self.genEvents(spheres, voxel) # Initial sort
+        #[print("%d %d %f " % (e.k, e.eType, e.b)) for e in E]
+        #exit()
+        return self._simpleInsertF56rec(E, spheres, voxel, depth)
+
+    def _simpleInsertF56rec(self, E, spheres, voxel, depth):
+        #axis = depth % self.k
+        node = KDTreeNode(self.k)
+        #node.splitPlane = axis
+        node.depth = depth
+        node.voxel = voxel
+        if self.terminate(spheres, voxel, depth):
+            node.spheres = spheres
+            return node
+
+        #newVox = voxel.divide(axis, node.b)
+
+        data = self.FindPlaneAlg5(len(spheres), voxel, E)
+        if(data[0] is None):
+            #print("YO WHATUP")
+            node.spheres = spheres
+            return node
+            #exit()
+        axis = data[0].k
+        wB   = data[0].b
+
+        node.b = voxel.iLerp(wB, axis)
+        node.splitPlane = axis
+
+        newVox = voxel.divideWorld(axis, wB)
+        VL = newVox[0]
+        VR = newVox[1]
+
+        newE   = self.alg6Split(VL, VR, spheres, E, data[0], data[1]) # data[0] = p, data[1] = pSide
+
+
+        EL = newE[0]
+        ER = newE[1]
+
+        SL = []#sData[0]
+        SR = []#sData[1]
+        #NOTE: im assuming stuff here
+        for s in spheres:
+            if s.side == 1 or s.side == 0: #Left or Both
+                SL.append(s)
+            if s.side == 2 or s.side == 0: #Right or Both
+                SR.append(s)
+
+        #if(data[1] == 1):
+        #    SL.extend(SP)
+        #else:
+        #    SR.extend(SP)
+        #SL = [s for s in spheres if VL.collides(s)]
+        #SR = [s for s in spheres if VR.collides(s)]
+        #print("%d, %d" % (len(SL), len(SR)))
+        #print("%d %d" % (len(EL), len(ER)))
+
+        node.childFirst  = self._simpleInsertF56rec(EL, SL, VL, depth+1)
+        node.childSecond = self._simpleInsertF56rec(ER, SR, VR, depth+1)
+
+        return node
+
+
 
     #Algorithm 4 from https://webserver2.tecgraf.puc-rio.br/~psantos/inf2602_2008_2/pesquisa/hierarchy/kdtree/On%20building%20fast%20kd-Trees%20for%20Ray%20Tracing%20and%20on%20doing%20that%20in%20O(N%20log%20N).pdf
     def _simpleInsertF4(self, spheres, voxel, depth):
@@ -295,6 +525,7 @@ class KDTree:
 
         #node.b = self.findPlane(spheres, voxel)
         #newVox = voxel.divide(axis, node.b)
+        #print("START4")
         data = self.findPlaneAlg4(spheres, voxel)
         axis = data[0][0]
         wB   = data[0][1]
@@ -321,8 +552,8 @@ class KDTree:
         #SL = [s for s in spheres if VL.collides(s)]
         #SR = [s for s in spheres if VR.collides(s)]
         #print("%d, %d" % (len(SL), len(SR)))
-        node.childFirst  = self._simpleInsertF3(SL, VL, depth+1)
-        node.childSecond = self._simpleInsertF3(SR, VR, depth+1)
+        node.childFirst  = self._simpleInsertF4(SL, VL, depth+1)
+        node.childSecond = self._simpleInsertF4(SR, VR, depth+1)
 
         return node
 
@@ -342,6 +573,9 @@ class KDTree:
         #node.b = self.findPlane(spheres, voxel)
         #newVox = voxel.divide(axis, node.b)
         data = self.N2SAHPartition(spheres, voxel)
+        if data[0] is None:
+            node.spheres = spheres
+            return node
         axis = data[0][0]
         wB   = data[0][1]
 
@@ -443,13 +677,24 @@ class KDTree:
         print("Spewing k-d tree:")
         self._spewNodeF(self.root)
 
-    def simpleInsert(self, spheres):
+    def simpleInsert(self, method, spheres):
         #Using new Alg
         print("Starting k-d tree construction")
         start = time.time()
-        self.root = self._simpleInsertF4(spheres, getSphereVoxel(spheres), 0);
+        #self.root = self._simpleInsertF3(spheres, getSphereVoxel(spheres), 0);
+        #self.spewTree()
+        #print("DONE THE THING")
+        if method == 0:
+            self.root = self._simpleInsertF56(spheres, getSphereVoxel(spheres), 0);
+        elif method == 1:
+            self.root = self._simpleInsertF4(spheres, getSphereVoxel(spheres), 0);
+        elif method == 2:
+            self.root = self._simpleInsertF3(spheres, getSphereVoxel(spheres), 0);
         end = time.time()
+        self.spewTree()
+
         print("k-d Construction took: %f ms" % ((end - start)*1000))
+        return (end - start)*1000
 
 def getSphereVoxel(spheres): #This doesn't have to be recalculated each time
     minmax = getSphereBounds(spheres)
@@ -492,7 +737,46 @@ def SA_VOXEL(V):
             diff[1]*diff[2]*2 +
             diff[0]*diff[2]*2)
 
+def mergeE(E1, E2):
+    EO = []
+    wildcard = Event(0, 999999999,-1, 0)
+    E1.append(wildcard)
+    E2.append(wildcard)
+    E1i = 0
+    E2i = 0
+    #print(E1[E1i])
+    #print(E2[E2i])
+    #print(wildcard)
+    while (E1[E1i] is not wildcard or E2[E2i] is not wildcard):
+        #print("K1")
 
+        if(E1[E1i] is wildcard):
+            EO.append(E2[E2i])
+            E2i += 1
+            continue
+
+        if(E2[E2i] is wildcard):
+            EO.append(E1[E1i])
+            E1i += 1
+            continue
+
+        if E1[E1i] < E2[E2i]:
+            EO.append(E1[E1i])
+            E1i += 1
+
+        else:
+            EO.append(E2[E2i])
+            E2i += 1
+            #while E1i != len(E1) and E2i != len(E2):
+    #    if E1[E1i] < E2[E2i]:
+    #        E1i += 1
+    #        EO.append(EO)
+    #print("K")
+    #[print("%d %f" % (e.k, e.b)) for e in EO]
+    #exit()
+    E1.pop()
+    E2.pop()
+    return EO
 
 def perfectSplits(sphere, voxel):
     sVox = Voxel([0,0,0], [0,0,0])
@@ -501,7 +785,7 @@ def perfectSplits(sphere, voxel):
 
     P = []
     for k in range(3):
-        P.append((k,   B.minV[k]))
+        P.append((k, B.minV[k]))
         P.append((k, B.maxV[k]))
     return P
 
@@ -518,11 +802,6 @@ def classify(S, VL, VR, P):
             else:
                 SR.append(s)
     return (SL, SR, SP)
-
-
-def getSurfaceArea(spheres, axis, side):
-    print ("implement surface area")
-    return 0
 
 class World:
     def __init__(self):
@@ -571,11 +850,32 @@ def simdAddScalar(a, b, d): #It would be ideal if it was actually simd... but I 
     return tuple(retVar)
 
 def Main():
+
+    #orig_stdout = sys.stdout
+    #f = open('out.txt', 'w')
+    #sys.stdout = f
+
     world = World()
-    world.fillWithRandSpheres(500)
+    world.fillWithRandSpheres(1000)
     world.spewSpheres()
     world.tree = KDTree()
-    world.tree.simpleInsert(world.spheres)
-    world.tree.spewTree()
 
+    alg3Time  = 0
+    alg4Time  = 0
+    alg56Time = 0
+    alg3Time  = world.tree.simpleInsert(2, world.spheres)
+    alg4Time  = world.tree.simpleInsert(1, world.spheres)
+    alg56Time = world.tree.simpleInsert(0, world.spheres)
+    print("O(n log n):  %f" % alg56Time)
+    print("O(n log2 n): %f" % alg4Time)
+    print("O(n2):       %f" % alg3Time)
+
+    #world.tree.spewTree()
+
+
+    #for i in range(2):
+    #    print 'i = ', i
+
+    #sys.stdout = orig_stdout
+    #f.close()
 Main()

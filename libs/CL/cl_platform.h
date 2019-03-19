@@ -165,7 +165,6 @@ extern "C" {
 #endif
 
 #if (defined (_WIN32) && defined(_MSC_VER))
-
 /* scalar types  */
 typedef signed   __int8         cl_char;
 typedef unsigned __int8         cl_uchar;

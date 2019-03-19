@@ -1,5 +1,5 @@
 #pragma once
-#undef _WIN32
+
 #ifdef _WIN32
 
 #define W_ALIGN(x) __declspec( align (x) )

@@ -23,7 +23,7 @@ vec3 cosineSampleHemisphere(float u1, float u2, vec3 normal)
 
 
 #define NUM_BOUNCES 4
-#define NUM_SAMPLES 16
+#define NUM_SAMPLES 8
 __kernel void path_trace(
     __global vec4* out_tex,
     const __global float* ray_buffer,
@@ -70,10 +70,10 @@ __kernel void path_trace(
 	} res;
 
     res.f = (float)magic*M_PI_F+x;//fill up the mantissa.
-    unsigned int seed1 = res.ui + (int)(sin((float)x)*7.f);
+    unsigned int seed1 = res.ui + (int)(sin((float)x)*7.1f);
 
     res.f = (float)magic*M_PI_F+y;
-    unsigned int seed2 = y + (int)(sin((float)res.ui)*7.f);
+    unsigned int seed2 = y + (int)(sin((float)res.ui)*7*3.f);
 
     collision_result initial_result;
     if(!collide_all(r, &initial_result, s, MESH_SCENE_DATA))
@@ -81,10 +81,12 @@ __kernel void path_trace(
         out_tex[x+y*width] = sky;
         return;
     }
+    barrier(0); //good ?
 
     vec3 fin_colour = (vec3)(0.0f, 0.0f, 0.0f);
     for(int i = 0; i < NUM_SAMPLES; i++)
     {
+
         vec3 accum_color = (vec3)(0.0f, 0.0f, 0.0f);
         vec3 mask        = (vec3)(1.0f, 1.0f, 1.0f);
         ray sr;
@@ -121,6 +123,9 @@ __kernel void path_trace(
 
             mask *= dot(sample_dir, result.normal);
         }
+
+        //barrier(0); //good?
+
         accum_color = clamp(accum_color, 0.f, 1.f);
 
         fin_colour += accum_color * (1.f/NUM_SAMPLES);
@@ -145,10 +150,16 @@ __kernel void buffer_average(
     int x  = id%width;
     int y  = id/width;
     int offset = (x + y * width);
+    //        (n - 1) m[n-1] + a[n]
+    // m[n] = ---------------------
+    //                  n
 
+    float x2 = ((float)sample-1.f)*( (float)out_tex[offset].x + (float)fresh_frame_tex[sample].x)  /
+               (float)sample;
 
-    float4 temp = mix((float4)(
-                          (float)fresh_frame_tex[offset].x,
+//wo
+    /*float4 temp = mix((float4)(
+                            (float)fresh_frame_tex[offset].x,
                           (float)fresh_frame_tex[offset].y,
                           (float)fresh_frame_tex[offset].z,
                           (float)fresh_frame_tex[offset].w),
@@ -156,16 +167,16 @@ __kernel void buffer_average(
                           (float)out_tex[offset].x,
                           (float)out_tex[offset].y,
                           (float)out_tex[offset].z,
-                          (float)out_tex[offset].w), (float)sample/24.f);
+                          (float)out_tex[offset].w), 0.5f+((float)sample/2048.f/2.f));// );*/
     /*vec4 temp =  (float)(
         (float)fresh_frame_tex[offset].x,
         (float)fresh_frame_tex[offset].y,
         (float)fresh_frame_tex[offset].z,
         (float)fresh_frame_tex[offset].w)/12.f;*/
-    out_tex[offset] = (uchar4) ((unsigned char)temp.x,
-                                (unsigned char)temp.y,
-                                (unsigned char)temp.z,
-                                (unsigned char)temp.w);
+    out_tex[offset] = (uchar4) ((unsigned char)x2,
+                                (unsigned char)0,
+                                (unsigned char)0,
+                                (unsigned char)1.f);
 /*
         fresh_frame_tex[offset]/(unsigned char)(1.f/(1-(float)sample/255))
         + out_tex[offset]/(unsigned char)(1.f/((float)sample/255));*/
@@ -183,8 +194,16 @@ __kernel void f_buffer_average(
     int x  = id%width;
     int y  = id/width;
     int offset = (x + y * width);
-    out_tex[offset] = mix(fresh_frame_tex[offset], out_tex[offset],
-                          ((float)sample)/(float)num_samples);
+
+    //        (n - 1) m[n-1] + a[n]
+    // m[n] = ---------------------
+    //                  n
+
+    out_tex[offset] = ((sample-1) * out_tex[offset] + fresh_frame_tex[offset]) / (float) sample;
+
+
+    //out_tex[offset] = mix(fresh_frame_tex[offset], out_tex[offset],
+    //((float)sample)/(float)num_samples);
 }
 
 __kernel void f_buffer_to_byte_buffer(

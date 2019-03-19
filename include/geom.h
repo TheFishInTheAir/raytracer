@@ -1,10 +1,11 @@
 #pragma once
 #include <alignment_util.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef int   ivec3[4]; //1 int padding
 typedef float vec2[2];
-typedef float vec3[4]; //1 float padding
+typedef float vec3[4];  //1 float padding
 typedef float vec4[4];
 typedef float mat4[16];
 
@@ -19,6 +20,25 @@ typedef struct ray
 } ray;
 
 
+/**************/
+/* Voxel/AABB */
+/**************/
+
+typedef struct AABB
+{
+    vec3 max;
+    vec3 min;
+} AABB;
+
+void  AABB_divide(AABB, uint8_t, float, AABB*, AABB*);
+void  AABB_divide_world(AABB, uint8_t,  float, AABB*, AABB*);
+float AABB_surface_area(AABB);
+void  AABB_clip(AABB*, AABB*, AABB*);
+float AABB_ilerp(AABB, uint8_t, float);
+bool  AABB_is_planar(AABB*, uint8_t);
+
+void  AABB_construct_from_vertices(AABB*, vec3*,  unsigned int);
+void  AABB_construct_from_triangle(AABB*, ivec3*, vec3*);
 /**********/
 /* Sphere */
 /**********/

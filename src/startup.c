@@ -3,9 +3,9 @@
 #include <startup.h>
 #include <stdio.h>
 #include <raytracer.h>
+#include <mongoose.h>
 
-
-
+#include <ui_web.h>
 
 #ifdef WIN32
 #include <win32.h>
@@ -31,7 +31,81 @@
 #define DBL_STRFY(x) STRFY(x)
 
 
+static const char *s_http_port = "8000";
+static struct mg_serve_http_opts s_http_server_opts;
 
+static void ev_handler(struct mg_connection *c, int ev, void *p) {
+    if (ev == MG_EV_HTTP_REQUEST) {
+        struct http_message *hm = (struct http_message *) p;
+
+        // We have received an HTTP request. Parsed request is contained in `hm`.
+        // Send HTTP reply to the client which shows full original request.
+        mg_send_head(c, 200, ___src_ui_index_html_len, "Content-Type: text/html");
+        mg_printf(c, "%.*s", (int)___src_ui_index_html_len, ___src_ui_index_html);
+    }
+}
+
+
+static void handle_ws(struct mg_connection *c, int ev, void* ev_data) {
+    switch (ev)
+    { //ignore confusing indentation
+    case MG_EV_HTTP_REQUEST:
+    {
+        struct http_message *hm = (struct http_message *) ev_data;
+        //TODO: do something here
+        mg_send_head(c, 200, ___src_ui_index_html_len, "Content-Type: text/html");
+        mg_printf(c, "%.*s", (int)___src_ui_index_html_len, ___src_ui_index_html);
+        break;
+    }
+    case MG_EV_WEBSOCKET_HANDSHAKE_DONE:
+    {
+        printf("REALLY GOOD\n");
+        break;
+    }
+    case MG_EV_WEBSOCKET_FRAME:
+    {
+        struct websocket_message *wm = (struct websocket_message *) ev_data;
+        /* New websocket message. Tell everybody. */
+        //struct mg_str d = {(char *) wm->data, wm->size};
+        printf("WOW K: %s\n", wm->data);
+        break;
+    }
+    }
+
+    printf("TEST 3\n");
+    //c->flags |= MG_F_SEND_AND_CLOSE;
+}
+
+static void handle_ocp_li(struct mg_connection *c, int ev, void* ev_data) {
+    if (ev == MG_EV_HTTP_REQUEST) {
+        struct http_message *hm = (struct http_message *) ev_data;
+
+        // We have received an HTTP request. Parsed request is contained in `hm`.
+        // Send HTTP reply to the client which shows full original request.
+        mg_send_head(c, 200, ___src_ui_ocp_li_woff_len, "Content-Type: application/font-woff");
+        //c->send_mbuf = ___src_ui_ocp_li_woff;
+        //c->content_len = ___src_ui_ocp_li_woff_len;
+
+        mg_send(c, ___src_ui_ocp_li_woff, ___src_ui_ocp_li_woff_len);
+        //mg_printf(c, "%.*s", (int)___src_ui_ocp_li_woff_len, ___src_ui_ocp_li_woff);
+    }
+    printf("TEST 2\n");
+    c->flags |= MG_F_SEND_AND_CLOSE;
+}
+
+
+static void handle_style(struct mg_connection* c, int ev, void* ev_data) {
+    if (ev == MG_EV_HTTP_REQUEST) {
+        struct http_message *hm = (struct http_message *) ev_data;
+
+        // We have received an HTTP request. Parsed request is contained in `hm`.
+        // Send HTTP reply to the client which shows full original request.
+        mg_send_head(c, 200, ___src_ui_style_css_len, "Content-Type: text/css");
+        mg_printf(c, "%.*s", (int)___src_ui_style_css_len, ___src_ui_style_css);
+    }
+    printf("TEST\n");
+    c->flags |= MG_F_SEND_AND_CLOSE;
+}
 
 
 os_abs abst;
@@ -126,13 +200,41 @@ void loop_exit()
 {
     should_run = false;
 }
+
 void loop_pause()
 {
     should_pause = !should_pause;
 }
 
+void web_server_test()
+{
+    struct mg_mgr mgr;
+    struct mg_connection *c;
+
+    mg_mgr_init(&mgr, NULL);
+    c = mg_bind(&mgr, s_http_port, ev_handler);
+    mg_set_protocol_http_websocket(c);
+    mg_register_http_endpoint(c, "/ocp_li.woff", handle_ocp_li);
+    mg_register_http_endpoint(c, "/style.css", handle_style);
+    mg_register_http_endpoint(c, "/ws", handle_ws);
+
+    for (;;) {
+        mg_mgr_poll(&mgr, 1000);
+    }
+    mg_mgr_free(&mgr);
+
+    exit(1);
+
+}
+
 void run(void* unnused_rn)
 {
+    //TEST THING
+
+    //web_server_test();
+
+    //NORMAL EVERYTHING
+
 
     char isMeme = 'y';
     //scanf("%c", &isMeme);
@@ -156,7 +258,7 @@ void run(void* unnused_rn)
         scene* rscene = load_scene_json_url("scenes/path_test_2.rsc");
 
         rctx->stat_scene = rscene;
-        rctx->num_samples = 64; //NOTE: add input option for this
+        rctx->num_samples = 128; //NOTE: add input option for this
 
         raytracer_prepass(rctx);
 
@@ -199,6 +301,7 @@ void run(void* unnused_rn)
             }
 
             raytracer_refined_render(rctx);
+            //raytracer_render(rctx);
             if(rctx->render_complete)
             {
                 printf("\n\nRender took: %02i ms (%d samples)\n\n",

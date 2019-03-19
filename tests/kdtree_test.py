@@ -129,7 +129,7 @@ class KDTree:
         PR = SA_VOXEL(VR)/SA_VOXEL(V)
 
 
-        if PL >= 1-EPSILON or PR > 1-EPSILON:
+        if PL >= 1-EPSILON or PR > 1-EPSILON: #
             return [1000000000, 0] #arbitrarily large number
         #print(VL.getInfoStr()+"      "+VR.getInfoStr())
         #print("PL/PR: %f %f" % (PL, PR))
@@ -228,7 +228,7 @@ class KDTree:
 
         return (EL, ER)
 
-    def FindPlaneAlg5(self, N, V, E):
+    def FindPlaneAlg5(self, N, V, E): #Just gonna do this right now
         global EPSILON
 
         DEBUG_INFO = ""
@@ -440,7 +440,7 @@ class KDTree:
             #exit()
         if DEBUG :
             print("Algwhatever: %d %f %f" % (pInfo[0], pInfo[1], bestC))
-            
+
             print("DEBUG END")
 
         return (pInfo, bestPSide)
@@ -748,8 +748,6 @@ def mergeE(E1, E2):
     #print(E2[E2i])
     #print(wildcard)
     while (E1[E1i] is not wildcard or E2[E2i] is not wildcard):
-        #print("K1")
-
         if(E1[E1i] is wildcard):
             EO.append(E2[E2i])
             E2i += 1
@@ -763,10 +761,10 @@ def mergeE(E1, E2):
         if E1[E1i] < E2[E2i]:
             EO.append(E1[E1i])
             E1i += 1
-
         else:
             EO.append(E2[E2i])
             E2i += 1
+
             #while E1i != len(E1) and E2i != len(E2):
     #    if E1[E1i] < E2[E2i]:
     #        E1i += 1

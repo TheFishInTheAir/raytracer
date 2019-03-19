@@ -68,7 +68,7 @@ struct _rt_ctx
 
 raytracer_context* raytracer_init(unsigned int width, unsigned int height,
                                   uint32_t* output_buffer, rcl_ctx* ctx);
-void raytracer_prepass(raytracer_context*);
+void raytracer_prepass(raytracer_context*); //NOTE: I would't call it a prepass, its more like a build
 void raytracer_render(raytracer_context*);
 void raytracer_refined_render(raytracer_context*);
 void _raytracer_gen_ray_buffer(raytracer_context*);

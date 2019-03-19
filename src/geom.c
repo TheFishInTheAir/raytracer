@@ -40,6 +40,118 @@ void swap_float(float *f1, float *f2)
     *f1 = temp;
 }
 
+
+inline void AABB_divide(AABB source, uint8_t k, float b, AABB* left, AABB* right)
+{
+    vec3 new_min, new_max;
+    memcpy(new_min, source.min, sizeof(vec3));
+    memcpy(new_max, source.max, sizeof(vec3));
+
+    float wrld_split = source.min[k] + (source.max[k] - source.min[k]) * b;
+    new_min[k] = new_max[k] = wrld_split;
+
+    memcpy(left->min,  source.min, sizeof(vec3));
+    memcpy(left->max,  new_max,     sizeof(vec3));
+    memcpy(right->min, new_min,     sizeof(vec3));
+    memcpy(right->max, source.max, sizeof(vec3));
+}
+
+
+inline void AABB_divide_world(AABB source, uint8_t k, float world_b, AABB* left, AABB* right)
+{
+    vec3 new_min, new_max;
+    memcpy(new_min, source.min, sizeof(vec3));
+    memcpy(new_max, source.max, sizeof(vec3));
+
+    new_min[k] = new_max[k] = world_b;
+
+    memcpy(left->min,  source.min, sizeof(vec3));
+    memcpy(left->max,  new_max,     sizeof(vec3));
+    memcpy(right->min, new_min,     sizeof(vec3));
+    memcpy(right->max, source.max, sizeof(vec3));
+}
+
+
+inline float AABB_surface_area(AABB source)
+{
+    vec3 diff;
+
+    xv_sub(diff, source.max, source.min, 3);
+
+    return (diff[0]*diff[1]*2 +
+            diff[1]*diff[2]*2 +
+            diff[0]*diff[2]*2);
+}
+
+inline void AABB_clip(AABB* result, AABB* target, AABB* container)
+{
+    memcpy(result,  target, sizeof(AABB));
+
+    for (int i = 0; i < 3; i++)
+    {
+        if(result->min[i] < container->min[i])
+            result->min[i] = container->min[i];
+        if(result->max[i] > container->max[i])
+            result->max[i] = container->max[i];
+    }
+}
+
+inline void AABB_construct_from_triangle(AABB* result, ivec3* indices, vec3* vertices)
+{
+    for(int k = 0; k < 3; k++)
+    {
+        result->min[k] =  1000000;
+        result->max[k] = -1000000;
+    }
+
+    for(int i = 0; i < 3; i++)
+    {
+        float* vertex = vertices[indices[i][0]];
+
+        for(int k = 0; k < 3; k++)
+        {
+            if(vertex[k] < result->min[k])
+                result->min[k] = vertex[k];
+
+            if(vertex[k] > result->max[k])
+                result->max[k] = vertex[k];
+        }
+    }
+}
+
+inline void AABB_construct_from_vertices(AABB* result, vec3* vertices,
+                                          unsigned int num_vertices)
+{
+    for(int k = 0; k < 3; k++)
+    {
+        result->min[k] =  1000000;
+        result->max[k] = -1000000;
+    }
+    for(int i = 0; i < num_vertices; i++)
+    {
+        for(int k = 0; k < 3; k++)
+        {
+            if(vertices[i][k] < result->min[k])
+                result->min[k] = vertices[i][k];
+
+            if(vertices[i][k] > result->max[k])
+                result->max[k] = vertices[i][k];
+        }
+    }
+}
+
+inline bool AABB_is_planar(AABB* source, uint8_t k)
+{
+    if(source->max[k]-source->min[k] == 0.0f) //TODO: use epsilon instead of 0
+        return true;
+    return false;
+}
+
+inline float AABB_ilerp(AABB source, uint8_t k, float world_b)
+{
+    return (world_b - source.min[k]) / (source.max[k] - source.min[k]);
+}
+
 inline float does_collide_sphere(sphere s, ray r)
 {
     float t0, t1; // solutions for t if the ray intersects

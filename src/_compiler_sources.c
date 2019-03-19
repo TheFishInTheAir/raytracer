@@ -1,4 +1,5 @@
 #define CL_TARGET_OPENCL_VERSION 120
+
 #include <math.h>
 #include <stdlib.h>
 
@@ -10,12 +11,15 @@
 #undef TINYOBJ_LOADER_C_IMPLEMENTATION
 
 
-
+#include <mongoose.c>
 #include <parson.c>
 
 #ifdef _WIN32
-#define WIN32 // I guess CL doesn't add this macro by default...
+//#define _MSC_VER //NOTE: this is necessary for OpenCL I know its not good
+#define WIN32 // I don't want to fix all of my accidents right now.
 #endif
+
+
 
 #ifdef WIN32
 #include <win32.c>
@@ -29,10 +33,13 @@
 #define U_ALIGN(x) /*nothing*//*
 #else
 #define W_ALIGN(x) /*nothing*//*
-#define U_ALIGN(x) __attribute__ (( aligned (x) ));
+#define U_ALIGN(x) __attribute__ (( aligned (x) ))
 #endif*/
 
 //#define _MEM_DEBUG //Enable verbose memory allocation, movement and freeing
+
+#include <CL/opencl.h>
+
 #include <debug.c>
 
 #include <os_abs.c>
@@ -43,3 +50,5 @@
 #include <parallel.c>
 #include <irradiance_cache.c>
 #include <raytracer.c>
+#include <ss_raytracer.c>
+#include <kdtree.c>

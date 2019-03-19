@@ -295,8 +295,6 @@ void _raytracer_cast_rays(raytracer_context* rctx) //TODO: do more path tracing 
 {
     int err;
 
-
-
     scene_resource_push(rctx); //Update Scene buffers if necessary.
 
 

@@ -1,10 +1,10 @@
 #pragma once
 #include <alignment_util.h>
-
 #include <vec.h>
 //typedef struct{} sphere;
 struct sphere;
 struct plane;
+
 typedef struct _rt_ctx raytracer_context;
 
 typedef W_ALIGN(16) struct
@@ -16,12 +16,8 @@ typedef W_ALIGN(16) struct
     //TODO: add more.
 } U_ALIGN(16) material;
 
-/*typedef struct
-{
-    vec3 max;
-    vec3 min;
-} AABB;
-*/
+
+
 typedef W_ALIGN(32) struct
 {
     mat4 model;

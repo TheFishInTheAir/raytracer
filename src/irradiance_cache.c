@@ -6,9 +6,7 @@
 #include <raytracer.h>
 #include <parallel.h>
 
-#ifdef WIN32
-#define alloca _alloca
-#endif
+
 void ic_init(raytracer_context* rctx)
 {
     rctx->ic_ctx->cl_standard_format.image_channel_order     = CL_RGBA;

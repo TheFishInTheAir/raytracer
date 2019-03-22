@@ -103,6 +103,7 @@ bool hitBoundingBox(vec3 vmin, vec3 vmax,
 //t u v = x y z
 bool does_collide_triangle(vec3 tri[4], vec3* hit_coords, ray r) //tri has extra for padding
 {
+
     vec3 ab = tri[1] - tri[0];
     vec3 ac = tri[2] - tri[0];
 
@@ -128,6 +129,7 @@ bool does_collide_triangle(vec3 tri[4], vec3* hit_coords, ray r) //tri has extra
 
     //t
     hit_coords->x = dot(ac, qvec) * invDet;
+
 
     return true; //goose
 }
@@ -221,7 +223,7 @@ bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist, sce
         tri[1] = read_imagef(vertices, idx_1.x).xyz;
         tri[2] = read_imagef(vertices, idx_2.x).xyz;
 
-
+        //printf("(%f, %f, %f)\n", tri[0].x, tri[0].y, tri[0].z);
 
         vec3 bc_hit_coords = (vec3)(0.f); //t u v = x y z
         if(does_collide_triangle(tri, &bc_hit_coords, r) &&

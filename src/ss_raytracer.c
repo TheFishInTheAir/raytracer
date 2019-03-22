@@ -1,5 +1,6 @@
 #include <ss_raytracer.h>
 #include <scene.h>
+#include <kdtree.h>
 #include <raytracer.h>
 
 //Single sweep, as close to real time as this thing can support.
@@ -7,7 +8,7 @@ void ss_raytracer_render(ss_raytracer_context* srctx)
 {
     int err;
 
-    //TODO: refactor and remove prefix underscore
+    //TODO: @REFACTOR and remove prefix underscore
     _raytracer_gen_ray_buffer(srctx->rctx);
 
 

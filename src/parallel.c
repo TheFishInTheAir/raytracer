@@ -195,20 +195,20 @@ cl_mem gen_1d_image(raytracer_context* rctx, size_t t, void* ptr)
     cl_image_desc cl_standard_descriptor;
     cl_image_format     cl_standard_format;
     cl_standard_format.image_channel_order     = CL_RGBA;
-    cl_standard_format.image_channel_data_type = CL_FLOAT;
+	cl_standard_format.image_channel_data_type = CL_FLOAT; //prob should be float
 
     cl_standard_descriptor.image_type = CL_MEM_OBJECT_IMAGE1D;
-    cl_standard_descriptor.image_width = t/4 == 0 ? 1 : t/4;
+	cl_standard_descriptor.image_width = t/sizeof(float)/4;// t / 4 == 0 ? 1 : t / 4; //what?
     cl_standard_descriptor.image_height = 0;
     cl_standard_descriptor.image_depth  = 0;
     cl_standard_descriptor.image_array_size  = 0;
     cl_standard_descriptor.image_row_pitch  = 0;
+	cl_standard_descriptor.image_slice_pitch = 0;
     cl_standard_descriptor.num_mip_levels = 0;
     cl_standard_descriptor.num_samples = 0;
     cl_standard_descriptor.buffer = NULL;
 
-    int err;
-
+    int err = CL_SUCCESS;
 
     cl_mem img = clCreateImage(rctx->rcl->context,
                                CL_MEM_READ_WRITE | (/*ptr == NULL ? 0 :*/ CL_MEM_COPY_HOST_PTR),
@@ -311,7 +311,7 @@ void load_program_raw(rcl_ctx* ctx, char* data,
 {
     int err;
 
-    char* fin_data = (char*) malloc(strlen(data));
+    char* fin_data = (char*) malloc(strlen(data)+1);
     strcpy(fin_data, data);
 
     for(int i = 0; i < num_macros; i++)

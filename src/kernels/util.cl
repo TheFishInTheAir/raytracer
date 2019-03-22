@@ -73,7 +73,9 @@ static float get_random(unsigned int *seed0, unsigned int *seed1)
 		float f;
 		unsigned int ui;
 	} res;
-
+    //Maybe good, maybe not
+    *seed0++;
+    *seed1++;
 	res.ui = (ires & 0x007fffff) | 0x40000000;  /* bitwise AND, bitwise OR */
 	return (res.f - 2.0f) / 2.0f;
 }

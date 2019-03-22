@@ -30,6 +30,7 @@
 #define STRFY(x) #x
 #define DBL_STRFY(x) STRFY(x)
 
+//TODO: move this stuff to a different file, this is just for tests
 
 static const char *s_http_port = "8000";
 static struct mg_serve_http_opts s_http_server_opts;
@@ -255,7 +256,10 @@ void run(void* unnused_rn)
         raytracer_context* rctx = raytracer_init((unsigned int)width, (unsigned int)height,
                                                  row, rcl);
 		//scene* rscene = (scene*) malloc(sizeof(scene));
-        scene* rscene = load_scene_json_url("scenes/path_test_2.rsc");
+
+
+
+        scene* rscene = load_scene_json_url("scenes/path_obj_test.rsc");
 
         rctx->stat_scene = rscene;
         rctx->num_samples = 128; //NOTE: add input option for this

@@ -2,8 +2,9 @@
 #include <alignment_util.h>
 #include <vec.h>
 //typedef struct{} sphere;
-struct sphere;
-struct plane;
+//struct sphere;
+//struct plane;
+//struct kd_tree;
 
 typedef struct _rt_ctx raytracer_context;
 
@@ -60,6 +61,10 @@ typedef struct
     unsigned int num_meshes;
     bool meshes_changed;
 
+    //Trying to remember how I got all of the other structs to use typedefs...
+    //kd_tree
+    struct kd_tree* kdt;
+
 
     //NOTE: we could store vertices, normals, and texcoords contiguously as 1 buffer.
     vec3* mesh_verts;
@@ -83,3 +88,4 @@ typedef struct
 
 void scene_resource_push(raytracer_context*);
 void scene_init_resources(raytracer_context*);
+void scene_generate_resources(raytracer_context*); //k-d tree generation

@@ -84,7 +84,7 @@ char* load_file(const char* url, long *ret_length)
     }
     if (buffer)
     {
-        buffer[length] = '\0';
+        buffer[length-1] = '\0';
 
         *ret_length = length;
         return buffer;

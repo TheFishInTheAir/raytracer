@@ -85,8 +85,16 @@ void raytracer_cl_prepass(raytracer_context* rctx)
                                                  rctx->width*rctx->height*sizeof(vec4), NULL, &err);
     ASRT_CL("Error Creating OpenCL Fresh Frame Buffer.");
 
-	printf("Pushing Scene Resources.\n");
+	printf("Initializing Scene Resources On GPU.\n");
 	scene_init_resources(rctx);
+    printf("Initialising k-d tree\n");
+	fflush(stdout);
+    rctx->stat_scene->kdt->s = rctx->stat_scene;
+
+    printf("Generating k-d tree\n");
+
+    kd_tree_construct(rctx->stat_scene->kdt);
+	scene_resource_push(rctx);
 
     printf("Built Scene Kernels.\n");
 }

@@ -21,9 +21,8 @@ vec3 cosineSampleHemisphere(float u1, float u2, vec3 normal)
     return normalize(u * cos(theta)*r + v*sin(theta)*r + w*sqrt(1.0f - u1));
 }
 
-
-#define NUM_BOUNCES 4
-#define NUM_SAMPLES 8
+#define NUM_BOUNCES 2
+#define NUM_SAMPLES 4
 __kernel void path_trace(
     __global vec4* out_tex,
     const __global float* ray_buffer,
@@ -92,6 +91,7 @@ __kernel void path_trace(
         ray sr;
         float rand1 = get_random(&seed1, &seed2);
         float rand2 = get_random(&seed1, &seed2);
+
 
         vec3 sample_dir =  cosineSampleHemisphere(rand1, rand2, initial_result.normal);
         sr.orig = initial_result.point + initial_result.normal * 0.0001f; //sweet spot for epsilon

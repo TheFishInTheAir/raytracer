@@ -232,7 +232,7 @@ int main()
 //Should Block the Win32 Update Loop.
 #define WIN32_SHOULD_BLOCK_LOOP
 
-void win32_loop()
+void win32_loop()	
 {
     printf("Starting WIN32 Window Loop\n");
     MSG msg;

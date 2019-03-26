@@ -14,25 +14,25 @@
             "r":0.7,
             "g":0.7,
             "b":0.75,
-            "reflectivity":0.7
+            "reflectivity":0.9
         },
         {
             "r":0.7,
             "g":0.7,
             "b":0.75,
-            "reflectivity":1
+            "reflectivity":0.9
         },
         {
-            "r":0.73,
-            "g":0.9411,
-            "b":0.819,
-            "reflectivity":0.05
+            "r":0.43,
+            "g":0.4411,
+            "b":0.519,
+            "reflectivity":0
         },
         {
             "r":0.8588,
             "g":0.352,
             "b":0.2588,
-            "reflectivity":0.2
+            "reflectivity":0.1
         },
         {
             "r":1,
@@ -63,10 +63,10 @@
         "spheres":
         [
             {
-                "x":-0.4,
-                "y":7,
-                "z":-2,
-                "radius":4,
+                "x":2,
+                "y":-0.5,
+                "z":-3,
+                "radius":1,
                 "mat_index":1
             }
         ],
@@ -79,16 +79,6 @@
                 "nx":0,
                 "ny":1,
                 "nz":0,
-
-                "mat_index":2
-            },
-            {
-                "x":0,
-                "y":0,
-                "z":-20,
-                "nx":0,
-                "ny":0,
-                "nz":1,
 
                 "mat_index":2
             }

@@ -25,15 +25,15 @@ vec3 cosineSampleHemisphere(float u1, float u2, vec3 normal)
 #define NUM_SAMPLES 4
 __kernel void path_trace(
     __global vec4* out_tex,
-    const __global float* ray_buffer,
+    const __global ray* ray_buffer,
     const __global material* material_buffer,
     const __global sphere* spheres,
     const __global plane* planes,
 //Mesh
     const __global mesh* meshes,
-    image1d_t indices,
-    image1d_t vertices,
-    image1d_t normals,
+    image1d_buffer_t indices,
+    image1d_buffer_t vertices,
+    image1d_buffer_t normals,
     /* const __global vec2* texcoords, */
     const unsigned int width,
     const vec4 pos,
@@ -53,13 +53,11 @@ __kernel void path_trace(
     //int x  = id%width+ get_global_offset(0)%total_width;
     //int y  = id/width/* + get_global_offset(0)/total_width*/;
     int offset = (x+y*width);
-    int ray_offset = offset*3;
+    //int ray_offset = offset; //NOTE: unnecessary w/ new rays
 
     ray r;
+    r = ray_buffer[offset];
     r.orig = pos.xyz;
-    r.dir.x = ray_buffer[ray_offset]; //NOTE: unoptimized memory access.
-    r.dir.y = ray_buffer[ray_offset+1];
-    r.dir.z = ray_buffer[ray_offset+2];
 
 
 

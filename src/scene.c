@@ -31,7 +31,7 @@ void scene_init_resources(raytracer_context* rctx)
                                                           sizeof(material)*
                                                           rctx->stat_scene->num_materials,
                                                           rctx->stat_scene->materials, &err);
-        ASRT_CL("Error Creating OpenCL Scene Plane Buffer.");
+    ASRT_CL("Error Creating OpenCL Scene Plane Buffer.");
 
 
     //Mesh
@@ -44,20 +44,20 @@ void scene_init_resources(raytracer_context* rctx)
 
     //mesh data is stored as images for faster access
     rctx->stat_scene->cl_mesh_vert_buffer =
-        gen_1d_image(rctx, rctx->stat_scene->num_mesh_verts==0 ? 1 :
-                     sizeof(vec3)*rctx->stat_scene->num_mesh_verts,
-                     rctx->stat_scene->mesh_verts);
+        gen_1d_image_buffer(rctx, rctx->stat_scene->num_mesh_verts==0 ? 1 :
+                            sizeof(vec3)*rctx->stat_scene->num_mesh_verts,
+                            rctx->stat_scene->mesh_verts);
 
     rctx->stat_scene->cl_mesh_nrml_buffer =
-        gen_1d_image(rctx, rctx->stat_scene->num_mesh_nrmls==0 ? 1 :
-                     sizeof(vec3)*rctx->stat_scene->num_mesh_nrmls,
-                     rctx->stat_scene->mesh_nrmls);
+        gen_1d_image_buffer(rctx, rctx->stat_scene->num_mesh_nrmls==0 ? 1 :
+                            sizeof(vec3)*rctx->stat_scene->num_mesh_nrmls,
+                            rctx->stat_scene->mesh_nrmls);
 
     rctx->stat_scene->cl_mesh_index_buffer =
-        gen_1d_image(rctx, rctx->stat_scene->num_mesh_indices==0 ? 1 :
-                     sizeof(ivec3)*
-                     rctx->stat_scene->num_mesh_indices,//maybe
-                     rctx->stat_scene->mesh_indices);
+        gen_1d_image_buffer(rctx, rctx->stat_scene->num_mesh_indices==0 ? 1 :
+                            sizeof(ivec3)*
+                            rctx->stat_scene->num_mesh_indices,//maybe
+                            rctx->stat_scene->mesh_indices);
 
 
 

@@ -165,11 +165,11 @@ void load_obj(struct obj_list_elem elem, int* mesh_offset, int* vert_offset, int
                 printf("Error: the obj loader only supports triangulated meshes!\n");
                 exit(1);
             }
-            for(int i = 0; i < 3; i++)
+            for(int j = 0; j < 3; j++)
             {
-                tinyobj_vertex_index_t face_index = elem.attrib.faces[(f+shape.face_offset)*3+i];
+                tinyobj_vertex_index_t face_index = elem.attrib.faces[(f+shape.face_offset)*3+j];
 
-                vec3 vertex;
+				vec3 vertex;
                 vertex[0] = elem.attrib.vertices[3*face_index.v_idx+0];
                 vertex[1] = elem.attrib.vertices[3*face_index.v_idx+1];
                 vertex[2] = elem.attrib.vertices[3*face_index.v_idx+2];
@@ -195,6 +195,9 @@ void load_obj(struct obj_list_elem elem, int* mesh_offset, int* vert_offset, int
             }
         }
     }
+
+    //__debugbreak();
+
 
     //GPU MEMORY ALIGNMENT FUN
     //NOTE: this is done because the gpu stores all vec3s 4 floats for memory alignment

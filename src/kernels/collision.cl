@@ -2,7 +2,7 @@
 /* Types */
 /*********/
 
-#define MESH_SCENE_DATA_PARAM image1d_t indices, image1d_t vertices, image1d_t normals
+#define MESH_SCENE_DATA_PARAM image1d_buffer_t indices, image1d_buffer_t vertices, image1d_buffer_t normals
 #define MESH_SCENE_DATA       indices, vertices, normals
 
 typedef struct //16 bytes
@@ -68,6 +68,26 @@ typedef struct
     const __global mesh* meshes;
 } scene;
 
+bool getTBoundingBox(vec3 vmin, vec3 vmax,
+                     ray r, float* t_min, float* t_max) //NOTE: could be wrong
+{
+    vec3 tmin = (vmin - r.orig) / r.dir;
+    vec3 tmax = (vmax - r.orig) / r.dir;
+
+    vec3 real_min = min(tmin, tmax);
+    vec3 real_max = max(tmin, tmax);
+
+    vec3 minmax = min(min(real_max.x, real_max.y), real_max.z);
+    vec3 maxmin = max(max(real_min.x, real_min.y), real_min.z);
+
+    if (dot(minmax,minmax) >= dot(maxmin, maxmin))
+    {
+        *t_min = sqrt(dot(minmax,minmax));
+        *t_max = sqrt(dot(maxmin,maxmin));
+        return (dot(maxmin, maxmin) > 0.001f ? true : false);
+    }
+    else return false;
+}
 
 
 bool hitBoundingBox(vec3 vmin, vec3 vmax,
@@ -223,7 +243,8 @@ bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist, sce
         tri[1] = read_imagef(vertices, idx_1.x).xyz;
         tri[2] = read_imagef(vertices, idx_2.x).xyz;
 
-        //printf("(%f, %f, %f)\n", tri[0].x, tri[0].y, tri[0].z);
+        //printf("%d/%d: (%f, %f, %f)\n", idx_0.x, collider.num_indices/3, tri[0].x, tri[0].y, tri[0].z);
+        //printf("%d/%d: (%f, %f, %f)\n", idx_1.x, collider.num_indices/3, tri[1].x, tri[1].y, tri[1].z);
 
         vec3 bc_hit_coords = (vec3)(0.f); //t u v = x y z
         if(does_collide_triangle(tri, &bc_hit_coords, r) &&
@@ -243,6 +264,55 @@ bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist, sce
     *dist = min_t;
     return min_t != FAR_PLANE;
 
+}
+
+bool does_collide_with_mesh_nieve(mesh collider, ray r, vec3* normal, float* dist, scene s,
+                                  image1d_buffer_t tree, MESH_SCENE_DATA_PARAM)
+{
+        //TODO: k-d trees
+    *dist = FAR_PLANE;
+    float min_t = FAR_PLANE;
+    vec3 hit_coord; //NOTE: currently unused
+    ray r2 = r;
+    if(!hitBoundingBox(collider.min, collider.max, r))
+    {
+        return false;
+    }
+
+    for(int i = 0; i < collider.num_indices/3; i++) // each ivec3
+    {
+        vec3 tri[4];
+
+        //get vertex (first element of each index)
+
+        int4 idx_0 = read_imagei(indices, i*3+collider.index_offset+0);
+        int4 idx_1 = read_imagei(indices, i*3+collider.index_offset+1);
+        int4 idx_2 = read_imagei(indices, i*3+collider.index_offset+2);
+
+        tri[0] = read_imagef(vertices, idx_0.x).xyz;
+        tri[1] = read_imagef(vertices, idx_1.x).xyz;
+        tri[2] = read_imagef(vertices, idx_2.x).xyz;
+
+        //printf("%d/%d: (%f, %f, %f)\n", idx_0.x, collider.num_indices/3, tri[0].x, tri[0].y, tri[0].z);
+        //printf("%d/%d: (%f, %f, %f)\n", idx_1.x, collider.num_indices/3, tri[1].x, tri[1].y, tri[1].z);
+
+        vec3 bc_hit_coords = (vec3)(0.f); //t u v = x y z
+        if(does_collide_triangle(tri, &bc_hit_coords, r) &&
+           bc_hit_coords.x<min_t && bc_hit_coords.x>0)
+        {
+            min_t = bc_hit_coords.x; //t (distance along direction)
+            *normal =
+                read_imagef(normals, idx_0.y).xyz*(1-bc_hit_coords.y-bc_hit_coords.z)+
+                read_imagef(normals, idx_1.y).xyz*bc_hit_coords.y+
+                read_imagef(normals, idx_2.y).xyz*bc_hit_coords.z;
+                //break; //convex optimization
+        }
+
+    }
+
+
+    *dist = min_t;
+    return min_t != FAR_PLANE;
 }
 
 bool does_collide_with_mesh_alt(mesh collider, ray r, vec3* normal, float* dist, scene s,

@@ -25,6 +25,11 @@ void* os_get_bitmap_memory(os_abs abs)
     return (*abs.get_bitmap_memory_func)();
 }
 
+void os_draw_weird(os_abs abs)
+{
+    (*abs.draw_weird)();
+}
+
 int os_get_time_mili(os_abs abs)
 {
     return (*abs.get_time_mili_func)();

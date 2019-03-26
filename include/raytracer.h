@@ -7,13 +7,18 @@
 #include <scene.h>
 #include <irradiance_cache.h>
 
+#define SS_RAYTRACER 0
+#define PATH_RAYTRACER 1
+
 //Cheap, quick, and dirty way of managing kernels.
-#define KERNELS {"cast_ray_test", "generate_rays", "path_trace",    \
-                 "buffer_average", "f_buffer_average", "f_buffer_to_byte_buffer", \
+#define KERNELS {"cast_ray_test", "generate_rays", "path_trace",        \
+                 "buffer_average", "f_buffer_average",                  \
+                 "f_buffer_to_byte_buffer",                             \
                  "ic_screen_textures", "generate_discontinuity",        \
-                 "float_average", "mip_single_upsample", "mip_upsample", \
-                 "mip_upsample_scaled", "mip_single_upsample_scaled", "mip_reduce", \
-                 "blit_float_to_output", "blit_float3_to_output"}
+                 "float_average", "mip_single_upsample", "mip_upsample",\
+                 "mip_upsample_scaled", "mip_single_upsample_scaled",   \
+                 "mip_reduce", "blit_float_to_output",                  \
+                 "blit_float3_to_output"}
 #define NUM_KERNELS 16
 #define RAY_CAST_KRNL_INDX 0
 #define RAY_BUFFER_KRNL_INDX 1
@@ -32,27 +37,40 @@
 #define BLIT_FLOAT_OUTPUT_INDX 14
 #define BLIT_FLOAT3_OUTPUT_INDX 15
 
-
 typedef struct _rt_ctx raytracer_context;
+
+typedef struct rt_vtable //NOTE: @REFACTOR not used anymore should delete
+{
+    bool up_to_date;
+    void (*build)(void*);
+    void (*pre_pass)(void*);
+    void (*render_frame)(void*);
+} rt_vtable;
+
 
 struct _rt_ctx
 {
     unsigned int width, height;
 
     float* ray_buffer;
-    vec4*  path_output_buffer;
+    vec4*  path_output_buffer; //TODO: put in path tracer output
     uint32_t* output_buffer;
     //uint32_t* fresh_frame_buffer;
 
     scene* stat_scene;
     ic_context* ic_ctx;
 
+    unsigned int block_size_y;
+    unsigned int block_size_x;
+
+    unsigned int event_stack[32];
+    unsigned int event_position;
 
     //TODO: seperate into contexts for each integrator.
     //Path tracing only
 
-    unsigned int num_samples;
-    unsigned int current_sample;
+    unsigned int num_samples;    //TODO: put in path tracer file.
+    unsigned int current_sample; //TODO: put in path tracer file.
     bool render_complete;
 
     //CL
@@ -61,13 +79,15 @@ struct _rt_ctx
 
     cl_mem cl_ray_buffer;
     cl_mem cl_output_buffer;
-    cl_mem cl_path_output_buffer;
-    cl_mem cl_path_fresh_frame_buffer; //Only exists on GPU
+    cl_mem cl_path_output_buffer; //TODO: put in path tracer file
+    cl_mem cl_path_fresh_frame_buffer; //Only exists on GPU TODO: put in path tracer file.
 
 };
 
 raytracer_context* raytracer_init(unsigned int width, unsigned int height,
                                   uint32_t* output_buffer, rcl_ctx* ctx);
+
+void raytracer_build(raytracer_context*);
 void raytracer_prepass(raytracer_context*); //NOTE: I would't call it a prepass, its more like a build
 void raytracer_render(raytracer_context*);
 void raytracer_refined_render(raytracer_context*);

@@ -189,6 +189,61 @@ cl_mem gen_rgb_image(raytracer_context* rctx,
     ASRT_CL("Couldn't Create OpenCL Texture");
     return img;
 }
+
+rcl_img_buf gen_1d_image_buffer(raytracer_context* rctx, size_t t, void* ptr)
+{
+    int err = CL_SUCCESS;
+
+
+    rcl_img_buf ib;
+    ib.size = t;
+
+    ib.buffer = clCreateBuffer(rctx->rcl->context,
+                               CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                               t,
+                               ptr,
+                               &err);
+    ASRT_CL("Error Creating OpenCL ImageBuffer Buffer.");
+
+
+    cl_image_desc cl_standard_descriptor;
+    cl_image_format     cl_standard_format;
+    cl_standard_format.image_channel_order     = CL_RGBA;
+	cl_standard_format.image_channel_data_type = CL_FLOAT; //prob should be float
+
+    cl_standard_descriptor.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
+	cl_standard_descriptor.image_width = t/sizeof(float)/4;// t / 4 == 0 ? 1 : t / 4; //what?
+    cl_standard_descriptor.image_height = 0;
+    cl_standard_descriptor.image_depth  = 0;
+    cl_standard_descriptor.image_array_size  = 0;
+    cl_standard_descriptor.image_row_pitch  = 0;
+	cl_standard_descriptor.image_slice_pitch = 0;
+    cl_standard_descriptor.num_mip_levels = 0;
+    cl_standard_descriptor.num_samples = 0;
+    cl_standard_descriptor.buffer = ib.buffer;
+
+
+    /*
+    size_t return_val;
+    err = clGetDeviceInfo (rctx->rcl->device_id,
+                           CL_DEVICE_IMAGE_MAX_BUFFER_SIZE,
+                           sizeof(size_t),
+                           &return_val,
+                           NULL);
+    printf("%zd %zd  out of: %zd\n", t, cl_standard_descriptor.image_width, return_val);
+    */
+
+
+    ib.image = clCreateImage(rctx->rcl->context,
+                             CL_MEM_READ_WRITE,
+                             &cl_standard_format,
+                             &cl_standard_descriptor,
+                             NULL,//ptr,
+                             &err);
+    ASRT_CL("Error Creating OpenCL ImageBuffer Image.");
+
+    return ib;
+}
 cl_mem gen_1d_image(raytracer_context* rctx, size_t t, void* ptr)
 {
 
@@ -208,7 +263,18 @@ cl_mem gen_1d_image(raytracer_context* rctx, size_t t, void* ptr)
     cl_standard_descriptor.num_samples = 0;
     cl_standard_descriptor.buffer = NULL;
 
+
     int err = CL_SUCCESS;
+
+    /*size_t return_val;
+    err = clGetDeviceInfo (rctx->rcl->device_id,
+                           CL_DEVICE_IMAGE_MAX_BUFFER_SIZE,
+                           sizeof(size_t),
+                           &return_val,
+                           NULL);
+    printf("%zd %zd  out of: %zd\n", t, cl_standard_descriptor.image_width, return_val);*/
+
+
 
     cl_mem img = clCreateImage(rctx->rcl->context,
                                CL_MEM_READ_WRITE | (/*ptr == NULL ? 0 :*/ CL_MEM_COPY_HOST_PTR),
@@ -314,7 +380,7 @@ void load_program_raw(rcl_ctx* ctx, char* data,
     char* fin_data = (char*) malloc(strlen(data)+1);
     strcpy(fin_data, data);
 
-    for(int i = 0; i < num_macros; i++)
+    for(int i = 0; i < num_macros; i++) //TODO: make more efficient, don't copy all kernel code
     {
         int length = strlen(macros[i]);
         char* buf  = (char*) malloc(length+strlen(fin_data)+3);

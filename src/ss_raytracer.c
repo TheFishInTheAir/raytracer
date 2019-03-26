@@ -8,10 +8,10 @@ void ss_raytracer_render(ss_raytracer_context* srctx)
 {
     int err;
 
-    //TODO: @REFACTOR and remove prefix underscore
+    //TODO: @REFACTOR and remove prefix underscore and move to prepass
     _raytracer_gen_ray_buffer(srctx->rctx);
 
-
+    //NOTE: this is actually probably the prepass but whatever tbh
     scene_resource_push(srctx->rctx); //Update Scene buffers if necessary.
 
 
@@ -25,9 +25,9 @@ void ss_raytracer_render(ss_raytracer_context* srctx)
     clSetKernelArg(kernel, 3, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_sphere_buffer);
     clSetKernelArg(kernel, 4, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_plane_buffer);
     clSetKernelArg(kernel, 5, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_mesh_buffer);
-    clSetKernelArg(kernel, 6, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_mesh_index_buffer);
-    clSetKernelArg(kernel, 7, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_mesh_vert_buffer);
-    clSetKernelArg(kernel, 8, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_mesh_nrml_buffer);
+    clSetKernelArg(kernel, 6, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_mesh_index_buffer.image);
+    clSetKernelArg(kernel, 7, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_mesh_vert_buffer.image);
+    clSetKernelArg(kernel, 8, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_mesh_nrml_buffer.image);
 
     clSetKernelArg(kernel, 9, sizeof(unsigned int), &srctx->rctx->width);
     clSetKernelArg(kernel, 10, sizeof(unsigned int), &srctx->rctx->height);
@@ -49,4 +49,35 @@ void ss_raytracer_render(ss_raytracer_context* srctx)
                               srctx->rctx->output_buffer, 0, NULL, NULL );
     ASRT_CL("Failed to read output array");
 
+}
+
+ss_raytracer_context* init_ss_raytracer_context(struct _rt_ctx* rctx)
+{
+    ss_raytracer_context* ssctx = malloc(sizeof(ss_raytracer_context));
+
+    ssctx->rctx = rctx;
+    ssctx->up_to_date = false;
+    return ssctx;
+}
+
+
+//NOTE: @REFACTOR not used anymore should delete
+rt_vtable get_ss_raytracer_vtable()//TODO: don't use tbh.
+{
+    rt_vtable v;
+    v.up_to_date = false;
+    //v.build      = &ss_raytracer_build;
+    v.pre_pass     =&ss_raytracer_prepass;
+    v.render_frame = &ss_raytracer_render;
+    return v;
+}
+
+void ss_raytracer_build(ss_raytracer_context* srctx)
+{
+    raytracer_build(srctx->rctx); //nothing special
+}
+
+void ss_raytracer_prepass(ss_raytracer_context* srctx)
+{
+    raytracer_prepass(srctx->rctx); //Nothing Special
 }

@@ -6,25 +6,25 @@ vec4 shade(collision_result result, scene s, MESH_SCENE_DATA_PARAM)
     vec4 test_lighting = (vec4) (clamp((float)dot(result.normal, nspace_light_dir), 0.0f, 1.0f));
     ray r;
     r.dir  = nspace_light_dir;
-    r.orig = result.point + nspace_light_dir*0.01f;
+    r.orig = result.point + nspace_light_dir*0.00001f;
     collision_result _cr;
     bool visible = !collide_all(r, &_cr, s, MESH_SCENE_DATA);
-    //test_lighting *= (vec4)(result.mat.colour, 1.0f);
+    test_lighting *= (vec4)(result.mat.colour, 1.0f);
     return visible*test_lighting/2;
 }
 
 
 __kernel void cast_ray_test(
     __global unsigned int* out_tex,
-    const __global float* ray_buffer,
+    const __global ray* ray_buffer,
     const __global material* material_buffer,
     const __global sphere* spheres,
     const __global plane* planes,
 //Mesh
     const __global mesh* meshes,
-    image1d_t indices,
-    image1d_t vertices,
-    image1d_t normals,
+    image1d_buffer_t indices,
+    image1d_buffer_t vertices,
+    image1d_buffer_t normals,
     /* const __global vec2* texcoords, */
     /* , */
 
@@ -39,20 +39,18 @@ __kernel void cast_ray_test(
     s.planes          = planes;
     s.meshes          = meshes;
 
-    const vec4 sky = (vec4) (0.2, 0.8, 0.5, 0);
+    const vec4 sky = (vec4) (0.84, 0.87, 0.93, 0);
     //return;
     int id = get_global_id(0);
     int x  = id%width;
     int y  = id/width;
     int offset = x+y*width;
-    int ray_offset = offset*3;
+    int ray_offset = offset;
 
 
     ray r;
-    r.orig = pos.xyz; //NOTE: unoptimized unaligned memory access.
-    r.dir.x = ray_buffer[ray_offset];
-    r.dir.y = ray_buffer[ray_offset+1];
-    r.dir.z = ray_buffer[ray_offset+2];
+    r = ray_buffer[ray_offset];
+    r.orig = pos.xyz; //NOTE: unnecesesary rn, in progress of updating kernels w/ the new ray buffers.
 
     //r.dir  = (vec3)(0,0,-1);
 
@@ -113,7 +111,7 @@ __kernel void cast_ray_test(
 
 //NOTE: it might be faster to make the ray buffer a multiple of 4 just to align with words...
 __kernel void generate_rays(
-    __global float* out_tex,
+    __global ray* out_tex,
     const unsigned int width,
     const unsigned int height,
     const t_mat4 wcm)
@@ -121,7 +119,7 @@ __kernel void generate_rays(
     int id = get_global_id(0);
     int x  = id%width;
     int y  = id/width;
-    int offset = (x + y * width) * 3;
+    int offset = (x + y * width);
 
     ray r;
 
@@ -137,7 +135,5 @@ __kernel void generate_rays(
 
     r.dir = normalize(r.dir);
 
-    out_tex[offset]   = r.dir.x;
-    out_tex[offset+1] = r.dir.y;
-    out_tex[offset+2] = r.dir.z;
+    out_tex[offset]   = r;
 }

@@ -13,6 +13,7 @@ const char CLASS_NAME[] = "Raytracer";
 
 static win32_context* ctx;
 
+void win32_draw_meme(); //vague predef
 
 os_abs init_win32_abs()
 {
@@ -26,6 +27,7 @@ os_abs init_win32_abs()
     abstraction.get_width_func = &win32_get_width;
     abstraction.get_height_func = &win32_get_height;
     abstraction.start_thread_func = &win32_start_thread;
+    abstraction.draw_weird = &win32_draw_meme;
     return abstraction;
 }
 
@@ -217,6 +219,8 @@ int _WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     {
         printf("FUCKKKK!!!\n");
     }
+
+
 
     startup();
 

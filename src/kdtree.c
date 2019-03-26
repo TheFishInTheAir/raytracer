@@ -41,6 +41,7 @@ typedef struct kd_tree_find_plane_results
     unsigned int NL;
     unsigned int NR;
     unsigned int NP;
+    float cost;
 
 } kd_tree_find_plane_results;
 
@@ -188,7 +189,7 @@ kd_tree_node* kd_tree_node_init()
 
     node->left  = NULL;
     node->right = NULL;
-
+	
     return node;
 }
 
@@ -269,6 +270,7 @@ kd_tree_find_plane_results kd_tree_find_plane(kd_tree* tree, AABB V,// ivec3* in
                 result.NL = tri_buf.num_triangles-NR;
                 result.NR = NR;
                 result.NP = NP;
+                result.cost = results.cost; //just the min cost, really confusing syntax
             }
 
             NL += Ps;
@@ -277,6 +279,7 @@ kd_tree_find_plane_results kd_tree_find_plane(kd_tree* tree, AABB V,// ivec3* in
         }
         free(event_buf.events);
     }
+
     return result;
 }
 
@@ -287,7 +290,7 @@ void kd_tree_classify(kd_tree* tree, kd_tree_triangle_buffer tri_buf,
     kd_tree_triangle_buffer TL;
     kd_tree_triangle_buffer TR;
     TL.num_triangles   = results.NL;
-    TL.triangle_buffer = (unsigned int*) malloc(sizeof(unsigned int)*results.NL);
+    TL.triangle_buffer = (unsigned int*) malloc(sizeof(unsigned int)*results.NL); //NOTE: memory leak, never freed.
     TR.num_triangles   = results.NR;
     TR.triangle_buffer = (unsigned int*) malloc(sizeof(unsigned int)*results.NR);
     unsigned int TLI, TRI;
@@ -307,9 +310,9 @@ void kd_tree_classify(kd_tree* tree, kd_tree_triangle_buffer tri_buf,
             float p = tree->s->mesh_verts
                   [ tree->s->mesh_indices
                   [ tri_buf.triangle_buffer[i]+j ][0] ][results.p.k];
-            if (p < results.p.b)
+            if(p-KDTREE_EPSILON < results.p.b)
                 isLeft = true;
-            else if(p > results.p.b)
+            if(p+KDTREE_EPSILON > results.p.b)
                 isRight = true;
             //have an else for on the line
             
@@ -360,15 +363,30 @@ kd_tree_node* kd_tree_construct_rec(kd_tree* tree, AABB V, kd_tree_triangle_buff
         return node;
     }
 
+    kd_tree_find_plane_results res = kd_tree_find_plane(tree, V, tri_buf);
+
+	if(res.cost > KDTREE_KI*(float)tri_buf.num_triangles)
+    {
+        node->triangles = tri_buf;
+        tree->num_leaves++;
+        tree->num_indices_total += tri_buf.num_triangles;
+        return node;
+    }
+
+
     tree->num_traversal_nodes++;
 
 	//printf("%d test\n", depth);
     //fflush(stdout);
 
-    kd_tree_find_plane_results res = kd_tree_find_plane(tree, V, tri_buf);
+
+
 
     uint8_t     k = res.p.k;
     float world_b = res.p.b;
+
+    node->k = k;
+    node->b = world_b; //local b is honestly useless
 
     AABB VL;
     AABB VR;
@@ -385,13 +403,15 @@ kd_tree_node* kd_tree_construct_rec(kd_tree* tree, AABB V, kd_tree_triangle_buff
 
 kd_tree_triangle_buffer kd_tree_gen_initial_tri_buf(kd_tree* tree)
 {
+	//__debugbreak();
+	assert(tree->s->num_mesh_indices % 3 == 0);
     kd_tree_triangle_buffer buf;
     buf.num_triangles   = tree->s->num_mesh_indices/3;
     buf.triangle_buffer = (unsigned int*) malloc(sizeof(unsigned int) * buf.num_triangles);
 
-    unsigned int j = 0;
-    for(int i = 0; i < buf.num_triangles; i++)
-        buf.triangle_buffer[j++] = i*3;
+    //unsigned int j = 0;
+	for (int i = 0; i < buf.num_triangles; i++)
+		buf.triangle_buffer[i] = i * 3;
 
     return buf;
 }
@@ -404,6 +424,7 @@ void kd_tree_construct(kd_tree* tree) //O(n log^2 n) implementation
     AABB_construct_from_vertices(&V, tree->s->mesh_verts, tree->s->num_mesh_verts); //works
     printf("DBG: kd-tree volume: (%f, %f, %f)  (%f, %f, %f)\n", V.min[0], V.min[1], V.min[2], V.max[0], V.max[1], V.max[2]);
     //exit(1);
+    tree->bounds = V;
     tree->root = kd_tree_construct_rec(tree, V, kd_tree_gen_initial_tri_buf(tree), 0);
 }
 

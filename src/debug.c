@@ -32,8 +32,10 @@ void _debug_free(void* ptr, int line, const char *func)
 #endif
 
 #ifdef WIN32
+#define DEBUG_BREAK __debugbreak
 #define _FILE_SEP '\\'
 #else
+#define DEBUG_BREAK
 #define _FILE_SEP '/'
 #endif
 
@@ -47,5 +49,6 @@ void _debug_free(void* ptr, int line, const char *func)
         fprintf(stderr, "ERROR: %s. (code: %i, line: %i, file:%s)\nPRESS ENTER TO EXIT\n", \
             m, err, __LINE__, __FILENAME__);                            \
         fflush(stderr);                                                 \
-        while(1){char c; scanf("%c",&c); exit(1);}                      \
+        DEBUG_BREAK();                                                  \
+        while(1){char c; scanf("%c",&c); exit(1);}  \
     }

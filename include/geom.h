@@ -17,7 +17,7 @@ typedef struct ray
     vec3 orig;
     vec3 dir;
     //float t_min, t_max;
-} ray;
+} ray; //already aligned
 
 
 /**************/

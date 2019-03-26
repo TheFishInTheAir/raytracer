@@ -26,9 +26,9 @@ __kernel void ic_screen_textures(
     const __global sphere* spheres,
     const __global plane* planes,
     const __global mesh* meshes,
-    image1d_t indices,
-    image1d_t vertices,
-    image1d_t normals)
+    image1d_buffer_t indices,
+    image1d_buffer_t vertices,
+    image1d_buffer_t normals)
 {
     scene s;
     s.material_buffer = material_buffer;

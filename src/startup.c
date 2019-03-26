@@ -5,7 +5,9 @@
 #include <raytracer.h>
 #include <mongoose.h>
 
-#include <ui_web.h>
+#include <ui.h>
+#include <ss_raytracer.h>
+#include <path_raytracer.h>
 
 #ifdef WIN32
 #include <win32.h>
@@ -30,141 +32,7 @@
 #define STRFY(x) #x
 #define DBL_STRFY(x) STRFY(x)
 
-//TODO: move this stuff to a different file, this is just for tests
-
-static const char *s_http_port = "8000";
-static struct mg_serve_http_opts s_http_server_opts;
-
-static void ev_handler(struct mg_connection *c, int ev, void *p) {
-    if (ev == MG_EV_HTTP_REQUEST) {
-        struct http_message *hm = (struct http_message *) p;
-
-        // We have received an HTTP request. Parsed request is contained in `hm`.
-        // Send HTTP reply to the client which shows full original request.
-        mg_send_head(c, 200, ___src_ui_index_html_len, "Content-Type: text/html");
-        mg_printf(c, "%.*s", (int)___src_ui_index_html_len, ___src_ui_index_html);
-    }
-}
-
-
-static void handle_ws(struct mg_connection *c, int ev, void* ev_data) {
-    switch (ev)
-    { //ignore confusing indentation
-    case MG_EV_HTTP_REQUEST:
-    {
-        struct http_message *hm = (struct http_message *) ev_data;
-        //TODO: do something here
-        mg_send_head(c, 200, ___src_ui_index_html_len, "Content-Type: text/html");
-        mg_printf(c, "%.*s", (int)___src_ui_index_html_len, ___src_ui_index_html);
-        break;
-    }
-    case MG_EV_WEBSOCKET_HANDSHAKE_DONE:
-    {
-        printf("REALLY GOOD\n");
-        break;
-    }
-    case MG_EV_WEBSOCKET_FRAME:
-    {
-        struct websocket_message *wm = (struct websocket_message *) ev_data;
-        /* New websocket message. Tell everybody. */
-        //struct mg_str d = {(char *) wm->data, wm->size};
-        printf("WOW K: %s\n", wm->data);
-        break;
-    }
-    }
-
-    printf("TEST 3\n");
-    //c->flags |= MG_F_SEND_AND_CLOSE;
-}
-
-static void handle_ocp_li(struct mg_connection *c, int ev, void* ev_data) {
-    if (ev == MG_EV_HTTP_REQUEST) {
-        struct http_message *hm = (struct http_message *) ev_data;
-
-        // We have received an HTTP request. Parsed request is contained in `hm`.
-        // Send HTTP reply to the client which shows full original request.
-        mg_send_head(c, 200, ___src_ui_ocp_li_woff_len, "Content-Type: application/font-woff");
-        //c->send_mbuf = ___src_ui_ocp_li_woff;
-        //c->content_len = ___src_ui_ocp_li_woff_len;
-
-        mg_send(c, ___src_ui_ocp_li_woff, ___src_ui_ocp_li_woff_len);
-        //mg_printf(c, "%.*s", (int)___src_ui_ocp_li_woff_len, ___src_ui_ocp_li_woff);
-    }
-    printf("TEST 2\n");
-    c->flags |= MG_F_SEND_AND_CLOSE;
-}
-
-
-static void handle_style(struct mg_connection* c, int ev, void* ev_data) {
-    if (ev == MG_EV_HTTP_REQUEST) {
-        struct http_message *hm = (struct http_message *) ev_data;
-
-        // We have received an HTTP request. Parsed request is contained in `hm`.
-        // Send HTTP reply to the client which shows full original request.
-        mg_send_head(c, 200, ___src_ui_style_css_len, "Content-Type: text/css");
-        mg_printf(c, "%.*s", (int)___src_ui_style_css_len, ___src_ui_style_css);
-    }
-    printf("TEST\n");
-    c->flags |= MG_F_SEND_AND_CLOSE;
-}
-
-
 os_abs abst;
-
-void cast_rays(int width, int height, uint32_t* bmap)
-{
-
-
-    // unsigned width = 640, height = 480;
-    // Vec3f *image = new Vec3f[width * height], *pixel = image;
-    //float invWidth = 1 / (float)width, invHeight = 1 / (float)height;
-    //float fov = 30, aspectratio = width / (float)height;
-    //float angle = tan(M_PI * 0.5 * fov / 180.);
-
-
-    static float dist = 5.0f;
-
-    sphere s;
-    xv_x(s.pos) = 0.0f;
-    xv_y(s.pos) = 0.0f;
-    xv_z(s.pos) = -dist;
-    s.radius = 1.0f;
-
-    if(dist<2.0f)
-        dist = 10.0f;
-    dist -= 0.05f;
-
-
-    int last_time = os_get_time_mili(abst);
-
-    const int pitch = width*4;
-
-    int y = 0;
-    int x = 0;
-    for(y = 0; y < height; y++)
-    {
-        uint32_t* pixel = (uint32_t*)bmap;
-        for(x = 0; x < width; x++)
-        {
-            ray out_ray = generate_ray(x, y, width, height, 90);
-            float dist =  does_collide_sphere(s, out_ray);
-            *pixel = dist != -1.0f ? 0x00ffffff & (int) dist*100 : 0x00000000;
-            //*pixel = 0x000000ff | ((uint32_t)((uint8_t)(y)))<<16;
-            pixel++;
-        }
-        bmap += width;
-    }
-    /* float stest = 0.0f; */
-
-    /* // compute 1e8 times either Sqrt(x) or its emulation as Pow(x, 0.5) */
-    /* for (float d = 0; d < width*height*2; d += 1) */
-    /*     // s += Math.Sqrt(d);  // <- uncomment it to test Sqrt */
-    /*     stest += sqrt(d*d); // <- uncomment it to test Pow */
-
-
-    printf("frame took: %i ms\n", os_get_time_mili(abst)-last_time);
-
-}
 
 #ifndef _WIN32
 char kbhit()
@@ -207,26 +75,6 @@ void loop_pause()
     should_pause = !should_pause;
 }
 
-void web_server_test()
-{
-    struct mg_mgr mgr;
-    struct mg_connection *c;
-
-    mg_mgr_init(&mgr, NULL);
-    c = mg_bind(&mgr, s_http_port, ev_handler);
-    mg_set_protocol_http_websocket(c);
-    mg_register_http_endpoint(c, "/ocp_li.woff", handle_ocp_li);
-    mg_register_http_endpoint(c, "/style.css", handle_style);
-    mg_register_http_endpoint(c, "/ws", handle_ws);
-
-    for (;;) {
-        mg_mgr_poll(&mgr, 1000);
-    }
-    mg_mgr_free(&mgr);
-
-    exit(1);
-
-}
 
 void run(void* unnused_rn)
 {
@@ -258,12 +106,97 @@ void run(void* unnused_rn)
 		//scene* rscene = (scene*) malloc(sizeof(scene));
 
 
+        os_start_thread(abst, web_server_start, rctx);
 
+
+        //TODO: move
         scene* rscene = load_scene_json_url("scenes/path_obj_test.rsc");
 
         rctx->stat_scene = rscene;
         rctx->num_samples = 128; //NOTE: add input option for this
 
+        ss_raytracer_context* ssrctx = NULL;
+        path_raytracer_context* prctx = NULL;
+        int current_renderer = -1;
+        bool global_up_to_date = false;
+        while(should_run)
+        {
+            if(rctx->event_position)
+            {
+                if(!global_up_to_date)
+                {
+                    raytracer_build(rctx); //TODO: cleanup previous stuff.
+                    xm4_identity(rctx->stat_scene->camera_world_matrix);//TODO: do something better
+                    global_up_to_date = true;
+                }
+                switch(rctx->event_stack[--rctx->event_position])
+                {
+                case(SS_RAYTRACER): //TODO: create defines for these
+                {
+                    printf("Switching To SS Raytracer\n");
+
+                    if(current_renderer==SS_RAYTRACER)
+                        break;
+                    current_renderer = SS_RAYTRACER;
+
+                    os_draw_weird(abst);
+                    os_update(abst);
+
+                    if(ssrctx==NULL)
+                        ssrctx = init_ss_raytracer_context(rctx);
+
+                    //if(!ssrctx->up_to_date)
+                    //{
+                    //ssrctx->up_to_date = true;
+                    ss_raytracer_prepass(ssrctx);
+                    //}
+
+                    break;
+                }
+                case(PATH_RAYTRACER):
+                {
+                    printf("Switching To Path Tracer\n");
+                    if(current_renderer==PATH_RAYTRACER)
+                        break;
+                    current_renderer = PATH_RAYTRACER;
+
+                    os_draw_weird(abst);
+                    os_update(abst);
+
+                    if(prctx==NULL)
+                        prctx = init_path_raytracer_context(rctx);
+
+                    //if(!ssrctx->up_to_date)
+                    //{
+                    //ssrctx->up_to_date = true;
+                    path_raytracer_prepass(prctx);
+                    //}
+
+                    break;
+                }
+                }
+            }
+
+            switch(current_renderer)
+            {
+            case(SS_RAYTRACER):
+            {
+                ss_raytracer_render(ssrctx);
+				break;
+            }
+            case(PATH_RAYTRACER):
+            {
+                path_raytracer_render(prctx);
+				break;
+            }
+
+            }
+            os_update(abst);
+        }
+
+        //all below shouldn't be a thing.
+
+        raytracer_build(rctx);
         raytracer_prepass(rctx);
 
         xm4_identity(rctx->stat_scene->camera_world_matrix);
@@ -304,8 +237,8 @@ void run(void* unnused_rn)
                 }
             }
 
-            raytracer_refined_render(rctx);
-            //raytracer_render(rctx);
+            //raytracer_refined_render(rctx);
+            raytracer_render(rctx);
             if(rctx->render_complete)
             {
                 printf("\n\nRender took: %02i ms (%d samples)\n\n",

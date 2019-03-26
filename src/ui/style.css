@@ -7,6 +7,43 @@ h {
 .titleBody {
 	text-align: center;
 }
+h2{
+	color: black;
+  	font-family: office_code_pro_li;
+  	font-size: 30pt;
+}
+
+input[type=text] {
+  	background-color: #fff;
+  	border: 2px solid #000;
+  	color: black;
+  	font-family: office_code_pro_li;
+  	font-size: 10pt;
+  	margin: 4px 2px;
+  	padding: 12px 20px;
+
+  	cursor: pointer;
+  	width: 40%;
+}
+
+p{
+	color: black;
+  	font-family: office_code_pro_li;
+}
+
+button {
+  background-color: #fff; /* Green */
+  border: 2px solid #000;
+  color: black;
+  padding: 15px 32px;
+  font-family: office_code_pro_li;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+}
 
 hr.titleBar {
 	margin-block-start: 0;

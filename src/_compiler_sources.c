@@ -48,7 +48,9 @@
 #include <geom.c>
 #include <loader.c>
 #include <parallel.c>
+#include <ui.c>
 #include <irradiance_cache.c>
 #include <raytracer.c>
 #include <ss_raytracer.c>
+#include <path_raytracer.c>
 #include <kdtree.c>

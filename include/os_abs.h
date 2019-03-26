@@ -6,6 +6,7 @@ typedef struct
     void (*loop_start_func)();
     void (*update_func)();
     void (*sleep_func)(int);
+    void (*draw_weird)();
     void* (*get_bitmap_memory_func)();
     int  (*get_time_mili_func)();
     int  (*get_width_func)();
@@ -17,6 +18,7 @@ void os_start(os_abs);
 void os_loop_start(os_abs);
 void os_update(os_abs);
 void os_sleep(os_abs, int);
+void os_draw_weird(os_abs abs);
 void* os_get_bitmap_memory(os_abs);
 int os_get_time_mili(os_abs);
 int os_get_width(os_abs);

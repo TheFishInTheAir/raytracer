@@ -68,19 +68,19 @@ typedef struct
 
     //NOTE: we could store vertices, normals, and texcoords contiguously as 1 buffer.
     vec3* mesh_verts;
-    cl_mem cl_mesh_vert_buffer;
+    rcl_img_buf cl_mesh_vert_buffer;
     unsigned int num_mesh_verts; //NOTE: must be constant.
 
     vec3* mesh_nrmls;
-    cl_mem cl_mesh_nrml_buffer;
+    rcl_img_buf cl_mesh_nrml_buffer;
     unsigned int num_mesh_nrmls; //NOTE: must be constant.
 
     vec2* mesh_texcoords;
-    cl_mem cl_mesh_texcoord_buffer;
+    rcl_img_buf cl_mesh_texcoord_buffer;
     unsigned int num_mesh_texcoords; //NOTE: must be constant.
 
     ivec3* mesh_indices;
-    cl_mem cl_mesh_index_buffer;
+    rcl_img_buf cl_mesh_index_buffer;
     unsigned int num_mesh_indices; //NOTE: must be constant.
 
 } scene;

@@ -3,7 +3,7 @@
 #include <stdbool.h>
 
 struct scene;
-
+//struct AABB;
 //TODO: make these variable from the ui, eventually
 #define KDTREE_KT 1.0f //Cost for traversal
 #define KDTREE_KI 1.5f //Cost for intersection
@@ -44,7 +44,7 @@ typedef struct kd_tree_triangle_buffer
 typedef struct kd_tree_node
 {
     uint8_t k; //Splittign Axis                  Bytes: 1, 1
-    float   b; //Local Split Ratio               Bytes: 4, 5
+    float   b; //World Split plane               Bytes: 4, 5
 
     struct kd_tree_node* left; //                       Bytes: 8, 13  NOTE: this could prob be stored as uint
     struct kd_tree_node* right;//                       Bytes: 8, 21
@@ -58,6 +58,8 @@ typedef struct kd_tree
     kd_tree_node* root;
     unsigned int k; //Num dimensions, should always be three in this case
 
+
+
     unsigned int num_nodes_total;
     unsigned int num_traversal_nodes;
     unsigned int num_leaves;
@@ -67,6 +69,7 @@ typedef struct kd_tree
     unsigned int tri_for_leaf_threshold;
 
     scene* s;
+    AABB bounds;
 
     //Serialized form.
     char* buffer;

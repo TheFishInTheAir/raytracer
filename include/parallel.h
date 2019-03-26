@@ -3,6 +3,13 @@
 
 #include <CL/opencl.h>
 #include <geom.h>
+
+#define MACRO_GEN(n, t, v,  i)                 \
+    char n[64];                                \
+    sprintf(n, "#define " #t, v);              \
+    i++;                                       \
+
+
 typedef struct _rt_ctx raytracer_context;
 
 typedef struct
@@ -22,6 +29,13 @@ typedef struct
 
 } rcl_program;
 
+typedef struct rcl_img_buf
+{
+    cl_mem buffer;
+    cl_mem image;
+    size_t size;
+} rcl_img_buf;
+
 void cl_info();
 void create_context(rcl_ctx* context);
 void load_program_raw(rcl_ctx* ctx, char* data, char** kernels, unsigned int num_kernels,
@@ -38,6 +52,7 @@ cl_mem gen_grayscale_buffer(raytracer_context* rctx,
                             const unsigned int width,
                             const unsigned int height);
 cl_mem gen_1d_image(raytracer_context* rctx, size_t t, void* ptr);
+rcl_img_buf gen_1d_image_buffer(raytracer_context* rctx, size_t t, void* ptr);
 void retrieve_buf(raytracer_context* rctx, cl_mem g_buf, void* c_buf, size_t);
 
 void zero_buffer_img(raytracer_context* rctx, cl_mem buf, size_t element,

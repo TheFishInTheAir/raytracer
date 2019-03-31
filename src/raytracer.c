@@ -47,8 +47,8 @@ void raytracer_build_kernels(raytracer_context* rctx)
     MACRO_GEN(index_macro,    SCENE_NUM_INDICES %i, rctx->stat_scene->num_mesh_indices, num_macros);
     MACRO_GEN(mesh_macro,     SCENE_NUM_MESHES  %i, rctx->stat_scene->num_meshes, num_macros);
     MACRO_GEN(material_macro, SCENE_NUM_MATERIALS  %i, rctx->stat_scene->num_materials, num_macros);
-    MACRO_GEN(blockx_macro,   BLOCKSIZE_X  %i, rctx->block_size_x, num_macros);
-    MACRO_GEN(blocky_macro,   BLOCKSIZE_Y  %i, rctx->block_size_y, num_macros);
+    MACRO_GEN(blockx_macro,   BLOCKSIZE_X  %i, rctx->rcl->simt_size, num_macros);
+    MACRO_GEN(blocky_macro,   BLOCKSIZE_Y  %i, rctx->rcl->num_simt_per_multiprocessor, num_macros);
 
     char min_macro[64];
     sprintf(min_macro, "#define SCENE_MIN (%f, %f, %f)",
@@ -129,9 +129,7 @@ void raytracer_prepass(raytracer_context* rctx)
 {
     printf("Starting Raytracer Prepass.\n");
 
-    printf("Pushing Scene Resources.\n");
     scene_resource_push(rctx);
-    printf("Finished Pushing Scene Resources.\n");
 
     printf("Finished Raytracer Prepass.\n");
 }

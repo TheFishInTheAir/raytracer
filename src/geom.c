@@ -66,8 +66,8 @@ inline void AABB_divide_world(AABB source, uint8_t k, float world_b, AABB* left,
     new_min[k] = new_max[k] = world_b;
 
     memcpy(left->min,  source.min, sizeof(vec3));
-    memcpy(left->max,  new_max,     sizeof(vec3));
-    memcpy(right->min, new_min,     sizeof(vec3));
+    memcpy(left->max,  new_max,    sizeof(vec3));
+    memcpy(right->min, new_min,    sizeof(vec3));
     memcpy(right->max, source.max, sizeof(vec3));
 }
 

@@ -19,6 +19,11 @@ typedef struct
     cl_context context;                 // compute context
     cl_command_queue commands;          // compute command queue
 
+    unsigned int simt_size;
+    unsigned int num_simt_per_multiprocessor;
+    unsigned int num_multiprocessors;
+    unsigned int num_cores;
+
 } rcl_ctx;
 
 typedef struct

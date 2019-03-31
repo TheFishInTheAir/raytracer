@@ -9,6 +9,7 @@
 
 #define SS_RAYTRACER 0
 #define PATH_RAYTRACER 1
+#define SPLIT_PATH_RAYTRACER 2
 
 //Cheap, quick, and dirty way of managing kernels.
 #define KERNELS {"cast_ray_test", "generate_rays", "path_trace",        \
@@ -18,8 +19,8 @@
                  "float_average", "mip_single_upsample", "mip_upsample",\
                  "mip_upsample_scaled", "mip_single_upsample_scaled",   \
                  "mip_reduce", "blit_float_to_output",                  \
-                 "blit_float3_to_output"}
-#define NUM_KERNELS 16
+                 "blit_float3_to_output", "kdtree_intersection", "kdtree_test_draw"}
+#define NUM_KERNELS 18
 #define RAY_CAST_KRNL_INDX 0
 #define RAY_BUFFER_KRNL_INDX 1
 #define PATH_TRACE_KRNL_INDX 2
@@ -36,6 +37,8 @@
 #define IC_MIP_REDUCE_KRNL_INDX 13
 #define BLIT_FLOAT_OUTPUT_INDX 14
 #define BLIT_FLOAT3_OUTPUT_INDX 15
+#define KDTREE_INTERSECTION_INDX 16
+#define KDTREE_TEST_DRAW_INDX 17
 
 typedef struct _rt_ctx raytracer_context;
 

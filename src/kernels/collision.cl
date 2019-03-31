@@ -69,24 +69,37 @@ typedef struct
 } scene;
 
 bool getTBoundingBox(vec3 vmin, vec3 vmax,
-                     ray r, float* t_min, float* t_max) //NOTE: could be wrong
+                     ray r, float* tmin, float* tmax) //NOTE: could be wrong
 {
-    vec3 tmin = (vmin - r.orig) / r.dir;
-    vec3 tmax = (vmax - r.orig) / r.dir;
 
-    vec3 real_min = min(tmin, tmax);
-    vec3 real_max = max(tmin, tmax);
+    vec3 invD = 1/r.dir;///vec3(1/dir.x, 1/dir.y, 1/dir.z);
+	vec3 t0s = (vmin - r.orig) * invD;
+  	vec3 t1s = (vmax - r.orig) * invD;
 
-    vec3 minmax = min(min(real_max.x, real_max.y), real_max.z);
-    vec3 maxmin = max(max(real_min.x, real_min.y), real_min.z);
+  	vec3 tsmaller = min(t0s, t1s);
+    vec3 tbigger  = max(t0s, t1s);
 
-    if (dot(minmax,minmax) >= dot(maxmin, maxmin))
-    {
-        *t_min = sqrt(dot(minmax,minmax));
-        *t_max = sqrt(dot(maxmin,maxmin));
-        return (dot(maxmin, maxmin) > 0.001f ? true : false);
-    }
-    else return false;
+    *tmin = max(*tmin, max(tsmaller.x, max(tsmaller.y, tsmaller.z)));
+    *tmax = min(*tmax, min(tbigger.x,  min(tbigger.y, tbigger.z)));
+
+	return (*tmin < *tmax);
+
+    /* vec3 tmin = (vmin - r.orig) / r.dir; */
+    /* vec3 tmax = (vmax - r.orig) / r.dir; */
+
+    /* vec3 real_min = min(tmin, tmax); */
+    /* vec3 real_max = max(tmin, tmax); */
+
+    /* vec3 minmax = min(min(real_max.x, real_max.y), real_max.z); */
+    /* vec3 maxmin = max(max(real_min.x, real_min.y), real_min.z); */
+
+    /* if (dot(minmax,minmax) >= dot(maxmin, maxmin)) */
+    /* { */
+    /*     *t_min = sqrt(dot(maxmin,maxmin)); */
+    /*     *t_max = sqrt(dot(minmax,minmax)); */
+    /*     return (dot(maxmin, maxmin) > 0.001f ? true : false); */
+    /* } */
+    /* else return false; */
 }
 
 

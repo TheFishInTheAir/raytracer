@@ -1,7 +1,7 @@
 #include <kdtree.h>
 #include <scene.h>
 
-#define KDTREE_EPSILON 0.0001f
+#define KDTREE_EPSILON 0.001f
 
 #define KDTREE_BOTH  0
 #define KDTREE_LEFT  1
@@ -41,6 +41,7 @@ typedef struct kd_tree_find_plane_results
     unsigned int NL;
     unsigned int NR;
     unsigned int NP;
+    uint8_t side;
     float cost;
 
 } kd_tree_find_plane_results;
@@ -173,11 +174,15 @@ kd_tree* kd_tree_init()
     tree->max_recurse = 50;
     tree->tri_for_leaf_threshold = 2;
     tree->num_nodes_total     = 0;
+    tree->num_tris_padded     = 0;
     tree->num_traversal_nodes = 0;
     tree->num_leaves          = 0;
     tree->num_indices_total   = 0;
     tree->buffer_size         = 0;
     tree->buffer              = NULL;
+    tree->cl_kd_tree_buffer   = NULL;
+    xv3_zero(tree->bounds.min);
+    xv3_zero(tree->bounds.max);
     return tree;
 }
 
@@ -189,7 +194,7 @@ kd_tree_node* kd_tree_node_init()
 
     node->left  = NULL;
     node->right = NULL;
-	
+
     return node;
 }
 
@@ -232,10 +237,18 @@ kd_tree_find_plane_results kd_tree_find_plane(kd_tree* tree, AABB V,// ivec3* in
                 AABB_construct_from_triangle(&tv, tree->s->mesh_indices+tri_buf.triangle_buffer[i],
                                              tree->s->mesh_verts);
                 AABB_clip(&B, &tv, &V);
-
-                event_buf.events[j++] = (kd_tree_event) {i*3, B.min[k]-KDTREE_EPSILON, k, KDTREE_START};
-                event_buf.events[j++] = (kd_tree_event) {i*3, B.max[k]+KDTREE_EPSILON, k, KDTREE_END};
+                if(AABB_is_planar(&B, k))
+                {
+                    event_buf.events[j++] = (kd_tree_event) {i*3, B.min[k], k, KDTREE_PLANAR};
+                }
+                else
+                {
+                    event_buf.events[j++] = (kd_tree_event) {i*3, B.min[k], k, KDTREE_START};
+                    event_buf.events[j++] = (kd_tree_event) {i*3, B.max[k], k, KDTREE_END};
+                }
             }
+			event_buf.num_events = j; //TODO: maybe clear?
+
             int last_num_events = event_buf.num_events;
             event_buf = kd_tree_mergesort_event_buffer(event_buf); //could be wrong here
             assert(event_buf.num_events == last_num_events);
@@ -249,33 +262,52 @@ kd_tree_find_plane_results kd_tree_find_plane(kd_tree* tree, AABB V,// ivec3* in
             kd_tree_event p = event_buf.events[i];
             int Ps, Pe, Pp;
             Ps = Pe = Pp = 0;
-            while(i < event_buf.num_events && event_buf.events[i].b == p.b)
+            //while(i < event_buf.num_events && event_buf.events[i].b == p.b)
+            //{
+            //    if (event_buf.events[i].type == KDTREE_END)
+            //        Pe += 1;
+            //    else if(event_buf.events[i].type == KDTREE_START)
+            //        Ps += 1;
+            //    i++;
+            //}
+            while(i < event_buf.num_events && event_buf.events[i].b == p.b && event_buf.events[i].type == KDTREE_END)
             {
-                if (event_buf.events[i].type == KDTREE_END)
-                    Pe += 1;
-                else if(event_buf.events[i].type == KDTREE_START)
-                    Ps += 1;
+                Pe += 1;
+                i++;
+            }
+            while(i < event_buf.num_events && event_buf.events[i].b == p.b && event_buf.events[i].type == KDTREE_PLANAR)
+            {
+                Pp += 1;
+                i++;
+            }
+            while(i < event_buf.num_events && event_buf.events[i].b == p.b && event_buf.events[i].type == KDTREE_START)
+            {
+                Ps += 1;
                 i++;
             }
 
+            NP =  Pp;
+            NR -= Pp;
             NR -= Pe;
 
-            kd_tree_sah_results results = kd_tree_SAH(k, AABB_ilerp(V, k, p.b), V, NL, NR, 0);
+            kd_tree_sah_results results = kd_tree_SAH(k, AABB_ilerp(V, k, p.b), V, NL, NR, NP);
 
             if (results.cost < best_cost)
             {
                 best_cost = results.cost;
                 result.p = p;
+                result.side = results.side;
                 //NOTE: Favour the right, its not ideal, but NP isn't working right now
-                result.NL = tri_buf.num_triangles-NR;
+                result.NL = NL;//tri_buf.num_triangles-NR; //fix
                 result.NR = NR;
                 result.NP = NP;
                 result.cost = results.cost; //just the min cost, really confusing syntax
             }
 
             NL += Ps;
+            NL += NP;
+            NP =  0;
 
-            NP = 0; //TODO: do the stuff for planar tris, also use sides
         }
         free(event_buf.events);
     }
@@ -289,10 +321,10 @@ void kd_tree_classify(kd_tree* tree, kd_tree_triangle_buffer tri_buf,
 {
     kd_tree_triangle_buffer TL;
     kd_tree_triangle_buffer TR;
-    TL.num_triangles   = results.NL;
-    TL.triangle_buffer = (unsigned int*) malloc(sizeof(unsigned int)*results.NL); //NOTE: memory leak, never freed.
-    TR.num_triangles   = results.NR;
-    TR.triangle_buffer = (unsigned int*) malloc(sizeof(unsigned int)*results.NR);
+    TL.num_triangles   = results.NL + (results.side == KDTREE_LEFT ? results.NP : 0);
+    TL.triangle_buffer = (unsigned int*) malloc(sizeof(unsigned int)*TL.num_triangles); //NOTE: memory leak, never freed.
+    TR.num_triangles   = results.NR + (results.side == KDTREE_RIGHT ? results.NP : 0);
+    TR.triangle_buffer = (unsigned int*) malloc(sizeof(unsigned int)*TR.num_triangles);
     unsigned int TLI, TRI;
     TLI = TRI = 0;
     for(int i = 0; i < tri_buf.num_triangles; i++)
@@ -310,18 +342,32 @@ void kd_tree_classify(kd_tree* tree, kd_tree_triangle_buffer tri_buf,
             float p = tree->s->mesh_verts
                   [ tree->s->mesh_indices
                   [ tri_buf.triangle_buffer[i]+j ][0] ][results.p.k];
-            if(p-KDTREE_EPSILON < results.p.b)
+            if(p < results.p.b)
                 isLeft = true;
-            if(p+KDTREE_EPSILON > results.p.b)
+            if(p > results.p.b)
                 isRight = true;
             //have an else for on the line
-            
         }
 		//printf("NR:%d NL:%d TRI: %d TLI: %d   L %d R %d\n",results.NR, results.NL, TRI, TLI, isLeft, isRight);
 
         //Favour the right rn
-        if((isLeft && isRight) || (!isLeft && !isRight)) //should be splitting.
+        if(isLeft && isRight) //should be splitting.
+        {
             TR.triangle_buffer[TRI++] = tri_buf.triangle_buffer[i];
+            TL.triangle_buffer[TLI++] = tri_buf.triangle_buffer[i];
+        }
+        else if(!isLeft && !isRight)
+        {
+            if(results.side == KDTREE_LEFT)
+                TL.triangle_buffer[TLI++] = tri_buf.triangle_buffer[i];
+            else if(results.side == KDTREE_RIGHT)
+                TR.triangle_buffer[TRI++] = tri_buf.triangle_buffer[i];
+            else
+            {
+                assert(1!=1);
+                printf("really bad\n");
+            }
+        }
         else if(isLeft)
             TL.triangle_buffer[TLI++] = tri_buf.triangle_buffer[i];
         else if(isRight)
@@ -360,6 +406,7 @@ kd_tree_node* kd_tree_construct_rec(kd_tree* tree, AABB V, kd_tree_triangle_buff
         node->triangles = tri_buf;
         tree->num_leaves++;
         tree->num_indices_total += tri_buf.num_triangles;
+        tree->num_tris_padded   += tri_buf.num_triangles % 8;
         return node;
     }
 
@@ -370,6 +417,8 @@ kd_tree_node* kd_tree_construct_rec(kd_tree* tree, AABB V, kd_tree_triangle_buff
         node->triangles = tri_buf;
         tree->num_leaves++;
         tree->num_indices_total += tri_buf.num_triangles;
+        tree->num_tris_padded   += tri_buf.num_triangles % 8;
+
         return node;
     }
 
@@ -379,14 +428,14 @@ kd_tree_node* kd_tree_construct_rec(kd_tree* tree, AABB V, kd_tree_triangle_buff
 	//printf("%d test\n", depth);
     //fflush(stdout);
 
-
-
-
     uint8_t     k = res.p.k;
     float world_b = res.p.b;
 
     node->k = k;
     node->b = world_b; //local b is honestly useless
+
+    assert(node->b != V.min[k]);
+    assert(node->b != V.max[k]);
 
     AABB VL;
     AABB VR;
@@ -420,11 +469,18 @@ void kd_tree_construct(kd_tree* tree) //O(n log^2 n) implementation
 {
     assert(tree->s != NULL);
 
+    if(tree->s->num_mesh_indices == 0)
+    {
+        printf("WARNING: Skipping k-d tree Construction, num_mesh_indices is 0.\n");
+        return;
+    }
+
     AABB V; //TODO: create it
     AABB_construct_from_vertices(&V, tree->s->mesh_verts, tree->s->num_mesh_verts); //works
     printf("DBG: kd-tree volume: (%f, %f, %f)  (%f, %f, %f)\n", V.min[0], V.min[1], V.min[2], V.max[0], V.max[1], V.max[2]);
     //exit(1);
     tree->bounds = V;
+
     tree->root = kd_tree_construct_rec(tree, V, kd_tree_gen_initial_tri_buf(tree), 0);
 }
 
@@ -441,11 +497,14 @@ unsigned int kd_tree_generate_serialized_buf_rec(kd_tree* tree, kd_tree_node* no
     //NOTE: this could really just be two functions
     if(kd_tree_node_is_leaf(node)) // leaf
     {
-        tree->buffer[offset++] = KDTREE_LEAF; //type
+        //tree->buffer[offset++] = KDTREE_LEAF; //type
 
         { //leaf body
             _skd_tree_leaf_node l;
+            l.type = KDTREE_LEAF;
             l.num_triangles = node->triangles.num_triangles;
+            //printf("TEST %u \n", l.num_triangles);
+            //assert(l.num_triangles != 0);
             offset = _kd_tree_write_buf(tree->buffer, offset, &l, sizeof(_skd_tree_leaf_node));
         }
 
@@ -454,13 +513,18 @@ unsigned int kd_tree_generate_serialized_buf_rec(kd_tree* tree, kd_tree_node* no
             offset = _kd_tree_write_buf(tree->buffer, offset,
                                         node->triangles.triangle_buffer+i, sizeof(unsigned int));
         }
+        if(node->triangles.num_triangles % 2)
+            offset += 4;//if it isn't alligned with a long add 4 bytes (8 byte allignment)
+        if(offset % 8 > 0)
+            printf("NOT GOOD: %d %d \n", offset % 8, offset);
         return offset;
     }
     else // traversal node
     {
-        tree->buffer[offset++] = KDTREE_NODE; //type
+        ////tree->buffer[offset++] = KDTREE_NODE; //type
 
         _skd_tree_traversal_node n;
+        n.type = KDTREE_NODE;
         n.k = node->k;
         n.b = node->b;
         unsigned int struct_start_offset = offset;
@@ -470,8 +534,8 @@ unsigned int kd_tree_generate_serialized_buf_rec(kd_tree* tree, kd_tree_node* no
         //this goes after the left node
         unsigned int right_offset = kd_tree_generate_serialized_buf_rec(tree, node->right, left_offset);
 
-        n.left_ind  = left_offset;
-        n.right_ind = right_offset;
+        n.left_ind  = offset;//left_offset;
+        n.right_ind = left_offset;//right_offset;
 
         memcpy(tree->buffer+struct_start_offset, &n, sizeof(_skd_tree_traversal_node));
 
@@ -481,17 +545,27 @@ unsigned int kd_tree_generate_serialized_buf_rec(kd_tree* tree, kd_tree_node* no
 
 void kd_tree_generate_serialized(kd_tree* tree)
 {
+    if(tree->s->num_mesh_indices == 0)
+    {
+        //NOTE: should probably have a warning.
+        printf("WARNING: Skipping k-d tree Serialization, num_mesh_indices is 0.\n");
+        tree->buffer_size = 0;
+        tree->buffer = malloc(1);
+        return;
+    }
+
     unsigned int mem_needed = 0;
 
-    mem_needed += tree->num_nodes_total * sizeof(uint8_t); //type
+    //mem_needed += tree->num_nodes_total * sizeof(uint8_t); //type
     mem_needed += tree->num_traversal_nodes * sizeof(_skd_tree_traversal_node); //traversal nodes
     mem_needed += tree->num_leaves * sizeof(_skd_tree_leaf_node); //leaf nodes
-    mem_needed += tree->num_indices_total * sizeof(unsigned int); //triangle indices
-
+    mem_needed += (tree->num_indices_total+tree->num_tris_padded) * sizeof(unsigned int); //triangle indices
+    //mem_needed += 10000; //TODO: MAKE THIS PROPER.
     tree->buffer_size = mem_needed;
+    printf("Kd tree is %d bytes long.\n", mem_needed);
 
     tree->buffer = malloc(mem_needed);
-
+    //__debugbreak();
     kd_tree_generate_serialized_buf_rec(tree, tree->root, 0);
 
 }

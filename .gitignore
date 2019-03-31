@@ -1,10 +1,11 @@
 .emacs_saves/
-<<<<<<< HEAD
+
 ./build/
 .vs/
-=======
+
 build/
 .build/
 .vs/
 .DS_Store
->>>>>>> a59961a09649e0046ede94c8b3d50de9041129dc
+ge2_frontend/
+./ge2_frontend/

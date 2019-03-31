@@ -189,6 +189,8 @@ void load_obj(struct obj_list_elem elem, int* mesh_offset, int* vert_offset, int
                 out_scene->mesh_indices[(*index_offset)][0] = index[0];
                 out_scene->mesh_indices[(*index_offset)][1] = index[1];
                 out_scene->mesh_indices[(*index_offset)][2] = index[2];
+                //Sorry to anyone reading this line...
+                *((int*)out_scene->mesh_indices[(*index_offset)]+3) = (*mesh_offset)-1; //current mesh
 
                 //xv3_cpy(out_scene->mesh_indices + (*index_offset), index);
                 (*index_offset)++;
@@ -208,14 +210,14 @@ void load_obj(struct obj_list_elem elem, int* mesh_offset, int* vert_offset, int
 
         memcpy(out_scene->mesh_verts + (*vert_offset),
                elem.attrib.vertices+3*i,
-               sizeof(vec3));
+               sizeof(float)*3); //evem though our buffer is alligned theres is
         (*vert_offset) += 1;
     }
     for(int i = 0; i < elem.attrib.num_normals; i++)
     {
         memcpy(out_scene->mesh_nrmls + (*nrml_offset),
                elem.attrib.normals+3*i,
-               sizeof(vec3));
+               sizeof(float)*3);
         (*nrml_offset) += 1;
     }
     //NOTE: the texcoords are already aligned because they only have 2 elements.

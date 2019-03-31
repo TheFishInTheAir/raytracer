@@ -49,6 +49,6 @@ void _debug_free(void* ptr, int line, const char *func)
         fprintf(stderr, "ERROR: %s. (code: %i, line: %i, file:%s)\nPRESS ENTER TO EXIT\n", \
             m, err, __LINE__, __FILENAME__);                            \
         fflush(stderr);                                                 \
-        DEBUG_BREAK();                                                  \
-        while(1){char c; scanf("%c",&c); exit(1);}  \
+        while(1){char c; scanf("%c",&c); exit(1);}                      \
     }
+//DEBUG_BREAK();                                                \

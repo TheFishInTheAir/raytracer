@@ -45,7 +45,7 @@
     "meshes":
     [
         {
-            "url":"mesh/n_moved.obj",
+            "url":"mesh/scene.obj",
             "mat_index": 3,
             "px":0,
             "py":0,

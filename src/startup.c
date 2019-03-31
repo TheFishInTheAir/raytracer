@@ -8,6 +8,7 @@
 #include <ui.h>
 #include <ss_raytracer.h>
 #include <path_raytracer.h>
+#include <spath_raytracer.h>
 
 #ifdef WIN32
 #include <win32.h>
@@ -108,15 +109,20 @@ void run(void* unnused_rn)
 
         os_start_thread(abst, web_server_start, rctx);
 
+#ifdef DEV_MODE
+        rctx->event_stack[rctx->event_position++] = SPLIT_PATH_RAYTRACER;
+#endif
+
 
         //TODO: move
-        scene* rscene = load_scene_json_url("scenes/path_obj_test.rsc");
+        scene* rscene = load_scene_json_url("scenes/path_obj.rsc");
 
         rctx->stat_scene = rscene;
         rctx->num_samples = 128; //NOTE: add input option for this
 
         ss_raytracer_context* ssrctx = NULL;
         path_raytracer_context* prctx = NULL;
+        spath_raytracer_context* sprctx = NULL;
         int current_renderer = -1;
         bool global_up_to_date = false;
         while(should_run)
@@ -174,6 +180,27 @@ void run(void* unnused_rn)
 
                     break;
                 }
+                case(SPLIT_PATH_RAYTRACER):
+                {
+                    printf("Switching To Split Path Tracer\n");
+                    if(current_renderer==SPLIT_PATH_RAYTRACER)
+                        break;
+                    current_renderer = SPLIT_PATH_RAYTRACER;
+
+                    os_draw_weird(abst);
+                    os_update(abst);
+
+                    if(sprctx==NULL)
+                        sprctx = init_spath_raytracer_context(rctx);
+
+                    //if(!ssrctx->up_to_date)
+                    //{
+                    //ssrctx->up_to_date = true;
+                    spath_raytracer_prepass(sprctx);
+                    //}
+
+                    break;
+                }
                 }
             }
 
@@ -189,7 +216,11 @@ void run(void* unnused_rn)
                 path_raytracer_render(prctx);
 				break;
             }
-
+            case(SPLIT_PATH_RAYTRACER):
+            {
+                spath_raytracer_render(sprctx);
+				break;
+            }
             }
             os_update(abst);
         }

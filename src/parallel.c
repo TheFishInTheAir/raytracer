@@ -13,6 +13,7 @@ void cl_info()
     cl_uint deviceCount;
     cl_device_id* devices;
     cl_uint maxComputeUnits;
+    cl_uint recommendedWorkgroupSize = 0;
 
     // get all platforms
     clGetPlatformIDs(0, NULL, &platformCount);
@@ -56,11 +57,19 @@ void cl_info()
             clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, valueSize, value, NULL);
             printf(" %i.%d.%d OpenCL C version: %s\n", i, j+1, 3, value);
             free(value);
-
             // print parallel compute units
             clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS,
                     sizeof(maxComputeUnits), &maxComputeUnits, NULL);
             printf(" %i.%d.%d Parallel compute units: %d\n", i,  j+1, 4, maxComputeUnits);
+
+            size_t max_work_group_size;
+            clGetDeviceInfo(devices[j], CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                            sizeof(max_work_group_size), &max_work_group_size, NULL); //NOTE: just reuse var
+            printf(" %i.%d.%d Max work group size: %zu\n", i,  j+1, 4, max_work_group_size);
+
+            //clGetDeviceInfo(devices[j], CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+            //sizeof(recommendedWorkgroupSize), &recommendedWorkgroupSize, NULL);
+            //printf(" %i.%d.%d Recommended work group size: %d\n", i,  j+1, 4, recommendedWorkgroupSize);
 
         }
 
@@ -156,6 +165,56 @@ void create_context(rcl_ctx* ctx)
     }
     ASRT_CL("Failed to Initialise OpenCL");
 
+    { // num compute cores
+        unsigned int id;
+        clGetDeviceInfo(ctx->device_id, CL_DEVICE_VENDOR_ID, sizeof(unsigned int), &id, NULL);
+        switch(id)
+        {
+        case(0x10DE): //NVIDIA
+        {
+            unsigned int warp_size;
+            unsigned int compute_capability;
+            unsigned int num_sm;
+            unsigned int warps_per_sm;
+            clGetDeviceInfo(ctx->device_id, CL_DEVICE_WARP_SIZE_NV, //warp size
+                            sizeof(unsigned int), &warp_size, NULL);
+            clGetDeviceInfo(ctx->device_id, CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV, //compute capability
+                            sizeof(unsigned int), &compute_capability, NULL);
+            clGetDeviceInfo(ctx->device_id, CL_DEVICE_MAX_COMPUTE_UNITS, //number of stream multiprocessors
+                            sizeof(unsigned int), &num_sm, NULL);
+
+            switch(compute_capability)
+            { //nvidia skipped 4 btw
+            case 2: warps_per_sm = 1; break; //FERMI  (GK104/GK110)
+            case 3: warps_per_sm = 6; break; //KEPLER (GK104/GK110) NOTE: ONLY 4 WARP SCHEDULERS THOUGH!
+            case 5: warps_per_sm = 4; break; //Maxwell
+            case 6: warps_per_sm = 4; break; //PASCAL (GP10)
+            case 7: warps_per_sm = 2; break; //Volta/Turing Might not be correct(NOTE: 16 FP32 PER CORE? what about warps?)
+            }
+//Pascal has four warps per sm. Pascal's compute capability is 6
+            warps_per_sm = compute_capability >= 6 ? 4 : 1;
+
+            printf("NVIDIA INFO: SM: %d,  WARP SIZE: %d, COMPUTE CAPABILITY: %d, WARPS PER SM: %d, TOTAL STREAM PROCESSORS: %d\n\n",
+                   num_sm, warp_size, compute_capability, warps_per_sm, warps_per_sm*warp_size*num_sm);
+            ctx->simt_size = warp_size;
+            ctx->num_simt_per_multiprocessor = warps_per_sm;
+            ctx->num_multiprocessors = num_sm;
+            ctx->num_cores = warps_per_sm*warp_size*num_sm;
+            break;
+        }
+        case(0x1002): //AMD
+        {
+            printf("");
+            break;
+        }
+        case(0x8086): //INTEL
+        {
+
+            break;
+        }
+        }
+
+    }
 
 }
 
@@ -203,7 +262,7 @@ rcl_img_buf gen_1d_image_buffer(raytracer_context* rctx, size_t t, void* ptr)
                                t,
                                ptr,
                                &err);
-    ASRT_CL("Error Creating OpenCL ImageBuffer Buffer.");
+    ASRT_CL("Error Creating OpenCL ImageBuffer Buffer");
 
 
     cl_image_desc cl_standard_descriptor;
@@ -212,7 +271,7 @@ rcl_img_buf gen_1d_image_buffer(raytracer_context* rctx, size_t t, void* ptr)
 	cl_standard_format.image_channel_data_type = CL_FLOAT; //prob should be float
 
     cl_standard_descriptor.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
-	cl_standard_descriptor.image_width = t/sizeof(float)/4;// t / 4 == 0 ? 1 : t / 4; //what?
+	cl_standard_descriptor.image_width = t/4 == 0 ? 1 : t/sizeof(float)/4;// t / 4 == 0 ? 1 : t / 4; //what?
     cl_standard_descriptor.image_height = 0;
     cl_standard_descriptor.image_depth  = 0;
     cl_standard_descriptor.image_array_size  = 0;
@@ -240,7 +299,7 @@ rcl_img_buf gen_1d_image_buffer(raytracer_context* rctx, size_t t, void* ptr)
                              &cl_standard_descriptor,
                              NULL,//ptr,
                              &err);
-    ASRT_CL("Error Creating OpenCL ImageBuffer Image.");
+    ASRT_CL("Error Creating OpenCL ImageBuffer Image");
 
     return ib;
 }
@@ -253,7 +312,7 @@ cl_mem gen_1d_image(raytracer_context* rctx, size_t t, void* ptr)
 	cl_standard_format.image_channel_data_type = CL_FLOAT; //prob should be float
 
     cl_standard_descriptor.image_type = CL_MEM_OBJECT_IMAGE1D;
-	cl_standard_descriptor.image_width = t/sizeof(float)/4;// t / 4 == 0 ? 1 : t / 4; //what?
+	cl_standard_descriptor.image_width = t/4 == 0 ? 1 : t/sizeof(float)/4;// t / 4 == 0 ? 1 : t / 4; //what?
     cl_standard_descriptor.image_height = 0;
     cl_standard_descriptor.image_depth  = 0;
     cl_standard_descriptor.image_array_size  = 0;
@@ -417,6 +476,19 @@ void load_program_raw(rcl_ctx* ctx, char* data,
         printf("err code:%i\n %s\n", err, buffer);
         exit(1);
     }
+	else
+	{
+		size_t len;
+		char buffer[2048 * 25];
+		buffer[0] = '!';
+		buffer[1] = '\0';
+		int n_err = clGetProgramBuildInfo(program->program, ctx->device_id, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
+		if (n_err != CL_SUCCESS)
+		{
+			printf("The error had an error, I hate this. err:%i\n", n_err);
+		}
+		printf("Build info: %s\n", buffer);
+	}
 
     program->raw_kernels = malloc(sizeof(cl_kernel)*num_kernels);
     for(int i = 0; i < num_kernels; i++)

@@ -71,14 +71,26 @@ void scene_resource_push(raytracer_context* rctx)
 
     //if(rctx->stat_scene->kdt->cl_kd_tree_buffer != NULL)
         //    exit(1);
+    printf("Pushing Scene Resources...");
 
+    printf("Serializing k-d tree...");
     kd_tree_generate_serialized(rctx->stat_scene->kdt);
-    //NOTE: SUPER SCUFFED
-    rctx->stat_scene->kdt->cl_kd_tree_buffer =
-        gen_1d_image(rctx, rctx->stat_scene->kdt->buffer_size==0 ? 1 :
-                     rctx->stat_scene->kdt->buffer_size,
-                     rctx->stat_scene->kdt->buffer);
 
+//NOTE: SUPER SCUFFED
+    //TODO: make this an image buffer.
+    if(rctx->stat_scene->kdt->cl_kd_tree_buffer == NULL)
+    {
+        rctx->stat_scene->kdt->cl_kd_tree_buffer =
+            clCreateBuffer(rctx->rcl->context,
+                           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                           rctx->stat_scene->kdt->buffer_size,
+                           rctx->stat_scene->kdt->buffer, &err);
+        ASRT_CL("Couldn't create kd tree buffer.");
+        //rctx->stat_scene->kdt->cl_kd_tree_buffer =
+        //gen_1d_image(rctx, rctx->stat_scene->kdt->buffer_size,
+        //rctx->stat_scene->kdt->buffer);
+    }
+    printf("Pushing Buffers...");
     if(rctx->stat_scene->meshes_changed)
     {
         clEnqueueWriteBuffer (	rctx->rcl->commands,
@@ -131,4 +143,6 @@ void scene_resource_push(raytracer_context* rctx)
                                 NULL,
                                 NULL);
     }
+
+    printf("Done.\n");
 }

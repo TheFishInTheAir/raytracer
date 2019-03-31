@@ -13,24 +13,26 @@ struct scene;
 
 
 //serializable kd traversal node
-typedef struct _skd_tree_traversal_node //TODO: align
+typedef struct W_ALIGN(16) _skd_tree_traversal_node
 {
+    uint8_t type;
     uint8_t k;
     float   b;
 
-    unsigned int left_ind;
-    unsigned int right_ind;
-} _skd_tree_traversal_node;
+    size_t left_ind;   //NOTE: always going to be aligned by at least 4 (could multiply by four on gpu)
+    size_t right_ind;  //NOTE: I GIVE UP WITH LONGS JUST USE SIZE_T!
+} U_ALIGN(16) _skd_tree_traversal_node;
+
 
 //serializable kd leaf node
-typedef struct _skd_tree_leaf_node //TODO: align
+typedef struct  W_ALIGN(16) _skd_tree_leaf_node
 {
+    uint8_t type;
     unsigned int num_triangles;
     //uint tri 1
     //uint tri 2
     //uint etc...
-} _skd_tree_leaf_node;
-
+} U_ALIGN(16) _skd_tree_leaf_node;
 
 typedef struct kd_tree_triangle_buffer
 {
@@ -38,8 +40,15 @@ typedef struct kd_tree_triangle_buffer
     unsigned int  num_triangles;
 } kd_tree_triangle_buffer;
 
+//NOTE: not using a vec3 for the floats because it would be a waste of space.
+typedef struct kd_tree_collision_result
+{
+    unsigned int triangle_index;
+    float t;
+    float u;
+    float v;
+} kd_tree_collision_result;
 
-//NOTE: should the voxel be stored in here?
 //NOTE: should the depth be stored in here?
 typedef struct kd_tree_node
 {
@@ -61,6 +70,7 @@ typedef struct kd_tree
 
 
     unsigned int num_nodes_total;
+    unsigned int num_tris_padded;
     unsigned int num_traversal_nodes;
     unsigned int num_leaves;
     unsigned int num_indices_total;

@@ -5,7 +5,7 @@ path_raytracer_context* init_path_raytracer_context(struct _rt_ctx* rctx)
     path_raytracer_context* prctx = (path_raytracer_context*) malloc(sizeof(path_raytracer_context));
     prctx->rctx = rctx;
     prctx->up_to_date = false;
-    prctx->num_samples = 32;//arbitrary default
+    prctx->num_samples = 128;//arbitrary default
     int err;
     printf("Generating Pathtracer Buffers...\n");
     prctx->cl_path_fresh_frame_buffer = clCreateBuffer(rctx->rcl->context, CL_MEM_READ_WRITE,
@@ -157,6 +157,23 @@ void path_raytracer_render(path_raytracer_context* prctx)
 
     path_raytracer_path_trace(prctx);
 
+    if(prctx->current_sample == 1) //needs to be here
+    {
+        int err;
+        err = clEnqueueCopyBuffer (	prctx->rctx->rcl->commands,
+                                    prctx->cl_path_fresh_frame_buffer,
+                                    prctx->cl_path_output_buffer,
+                                    0,
+                                    0,
+                                    prctx->rctx->width*prctx->rctx->height*sizeof(vec4),
+                                    0,
+                                    0,
+                                    NULL);
+        ASRT_CL("Error copying OpenCL Output Buffer");
+
+        err = clFinish(prctx->rctx->rcl->commands);
+        ASRT_CL("Something happened while waiting for copy to finish");
+    }
     path_raytracer_average_buffers(prctx);
     path_raytracer_push_path(prctx);
 }
@@ -166,19 +183,4 @@ void path_raytracer_prepass(path_raytracer_context* prctx)
     raytracer_prepass(prctx->rctx); //Nothing Special
     prctx->current_sample = 0;
 
-    int err;
-    char pattern = 0;
-    err = clEnqueueCopyBuffer (	prctx->rctx->rcl->commands,
-                                prctx->cl_path_fresh_frame_buffer,
-                                prctx->cl_path_output_buffer,
-                                0,
-                                0,
-                                prctx->rctx->width*prctx->rctx->height*sizeof(vec4),
-                                0,
-                                0,
-                                NULL);
-    ASRT_CL("Error copying OpenCL Output Buffer");
-
-    err = clFinish(prctx->rctx->rcl->commands);
-    ASRT_CL("Something happened while waiting for copy to finish");
 }

@@ -21,6 +21,11 @@
 
 
 
+//REMOVE FOR PRESENTATION
+//#define DEV_MODE
+
+
+
 #ifdef WIN32
 #include <win32.c>
 //#else
@@ -53,4 +58,5 @@
 #include <raytracer.c>
 #include <ss_raytracer.c>
 #include <path_raytracer.c>
+#include <spath_raytracer.c>
 #include <kdtree.c>

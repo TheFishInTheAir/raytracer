@@ -23,6 +23,25 @@ vec3 cosineSampleHemisphere(float u1, float u2, vec3 normal)
 
 #define NUM_BOUNCES 2
 #define NUM_SAMPLES 4
+
+__kernel void segmented_path_trace(
+    __global vec4* out_tex,
+    const __global ray* ray_buffer,
+    const __global material* material_buffer,
+    const __global sphere* spheres,
+    const __global plane* planes,
+//Mesh
+    const __global mesh* meshes,
+    image1d_buffer_t indices,
+    image1d_buffer_t vertices,
+    image1d_buffer_t normals,
+    /* const __global vec2* texcoords, */
+    const unsigned int width
+    )
+{
+
+}
+
 __kernel void path_trace(
     __global vec4* out_tex,
     const __global ray* ray_buffer,

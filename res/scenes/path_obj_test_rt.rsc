@@ -45,7 +45,7 @@
     "meshes":
     [
         {
-            "url":"mesh/n_moved.obj",
+            "url":"mesh/test.obj",
             "mat_index": 3,
             "px":0,
             "py":0,

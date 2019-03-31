@@ -2,6 +2,7 @@
 #include <ui_web.h> //TODO: rename to ui_data or something
 #include <mongoose.h>
 #include <parson.h>
+#include <raytracer.h>
 
 static ui_ctx uctx;
 
@@ -34,28 +35,28 @@ void handle_ws_request(struct mg_connection *c, char* data)
     {
         switch((unsigned int)json_object_dotget_number(root_object, "action.type"))
         {
-        case 0: //build
+        case SS_RAYTRACER:
         {
             if(uctx.rctx->event_position==32)
                 return;
             printf("UI Event Queued: Switch To Single Bounce\n");
-            uctx.rctx->event_stack[uctx.rctx->event_position++] = 0;
+            uctx.rctx->event_stack[uctx.rctx->event_position++] = SS_RAYTRACER;
             return;
         }
-        case 1: //prepass
+        case PATH_RAYTRACER: //prepass
         {
             if(uctx.rctx->event_position==32)
                 return;
             printf("UI Event Queued: Switch To Path Raytracer\n");
-            uctx.rctx->event_stack[uctx.rctx->event_position++] = 1;
+            uctx.rctx->event_stack[uctx.rctx->event_position++] = PATH_RAYTRACER;
             return;
         }
-        case 2: //start render
+        case SPLIT_PATH_RAYTRACER: //start render
         {
             if(uctx.rctx->event_position==32)
                 return;
-            printf("Render Path Tracer\n");
-            uctx.rctx->event_stack[uctx.rctx->event_position++] = 2;
+            printf("UI Event Queued: Switch To Split Path Raytracer\n");
+            uctx.rctx->event_stack[uctx.rctx->event_position++] = SPLIT_PATH_RAYTRACER;
             return;
         }
         case 3: //start render
@@ -68,6 +69,25 @@ void handle_ws_request(struct mg_connection *c, char* data)
             return;
         }
         }
+        break;
+
+    }
+    case 2: //send kd tree to GE2
+    {
+
+        printf("GE2 requested k-d tree.\n");
+        //char buf[] = "{ \"type\":0, \"message\":\"Nothing Right Now.\"}";
+        if(uctx.rctx->stat_scene->kdt->buffer!=NULL)
+        {
+
+            mg_send_websocket_frame(c, WEBSOCKET_OP_TEXT, //TODO: put something for this (IT'S NOT TEXT)
+                                    uctx.rctx->stat_scene->kdt->buffer,
+                                    uctx.rctx->stat_scene->kdt->buffer_size);
+        }
+        else
+            printf("ERROR: no k-d tree.\n");
+
+        break;
     }
     }
 

@@ -11,9 +11,6 @@ void ss_raytracer_render(ss_raytracer_context* srctx)
     //TODO: @REFACTOR and remove prefix underscore and move to prepass
     _raytracer_gen_ray_buffer(srctx->rctx);
 
-    //NOTE: this is actually probably the prepass but whatever tbh
-    scene_resource_push(srctx->rctx); //Update Scene buffers if necessary.
-
 
     cl_kernel kernel = srctx->rctx->program->raw_kernels[RAY_CAST_KRNL_INDX]; //just use the first one
 
@@ -28,7 +25,6 @@ void ss_raytracer_render(ss_raytracer_context* srctx)
     clSetKernelArg(kernel, 6, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_mesh_index_buffer.image);
     clSetKernelArg(kernel, 7, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_mesh_vert_buffer.image);
     clSetKernelArg(kernel, 8, sizeof(cl_mem), &srctx->rctx->stat_scene->cl_mesh_nrml_buffer.image);
-
     clSetKernelArg(kernel, 9, sizeof(unsigned int), &srctx->rctx->width);
     clSetKernelArg(kernel, 10, sizeof(unsigned int), &srctx->rctx->height);
     clSetKernelArg(kernel, 11, sizeof(float)*4, result); //we only need 3

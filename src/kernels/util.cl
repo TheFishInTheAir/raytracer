@@ -1,5 +1,6 @@
 #define FOV 80.0f
 
+#define vec2 float2
 #define vec3 float3
 #define vec4 float4
 
@@ -26,6 +27,14 @@ typedef struct
     vec4 z;
     vec4 w;
 } __attribute__((aligned (16))) t_mat4;
+
+typedef struct kd_tree_collision_result
+{
+    unsigned int triangle_index;
+    float t;
+    float u;
+    float v;
+} kd_tree_collision_result;
 
 void swap_float(float *f1, float *f2)
 {

@@ -11,7 +11,7 @@ xxd -i ..\src\ui\style.css | sed 's/\([0-9a-f]\)$/\0, 0x00/' > .\style.css.h
 xxd -i ..\src\ui\ocp_li.woff | sed 's/\([0-9a-f]\)$/\0, 0x00/' > .\ocp_li.woff.h
 cat  ".\index.html.h" ".\ocp_li.woff.h" ".\style.css.h" > ui_web.h
 
-xcopy /s ..\res .\res /Y
+xcopy /s ..\res .\res\ /Y
 
 
 :: Implement and get working later (Removes CRT overhead)

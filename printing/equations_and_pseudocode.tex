@@ -1,0 +1,360 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                           %
+%                           %
+% TODO: EDIT AND SPELLCHECK %
+%                           %
+%                           %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass[12pt,letterpaper]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{mathptmx} %- used for times font
+\usepackage{endnotes}
+\usepackage{mathtools}
+\usepackage{color}
+\usepackage{listings}
+\usepackage{caption}
+
+\newcounter{nalg}[chapter] % defines algorithm counter for chapter-level
+\renewcommand{\thenalg}{\thechapter .\arabic{nalg}} %defines appearance of the algorithm counter
+\DeclareCaptionLabelFormat{algocaption}{Algorithm \thenalg} % defines a new caption label as Algorithm x.y
+
+\lstnewenvironment{algorithm}[1][] %defines the algorithm listing environment
+{   
+    \refstepcounter{nalg} %increments algorithm number
+    \captionsetup{labelformat=algocaption,labelsep=colon} %defines the caption setup for: it ises label format as the declared caption label above and makes label and caption text to be separated by a ':'
+    \lstset{ %this is the stype
+        mathescape=true,
+        frame=tB,
+        numbers=left, 
+        numberstyle=\tiny,
+        basicstyle=\linespread{0.9}\scriptsize, 
+        keywordstyle=\color{black}\bfseries\em,
+        keywords={return, Voxel, while, void, if, else, break, for, uint, ray, null, NODE, LEAF true, false, malloc, PLANAR, START, END}
+        numbers=left,
+        xleftmargin=.01\textwidth,
+        #1 % this is to add specific settings to an usage of this environment (for instnce, the caption and referable label)
+    }
+}
+{}
+
+%\usepackage{ragged2e} %- Sided justification
+\let\footnote=\endnote
+
+\begin{document}
+\doublespacing
+
+\begin{titlepage}
+  THIS IS THE TITLE
+\end{titlepage}
+
+\begin{paragraph}
+  \newline Favouring:
+\end{paragraph}
+\[
+    \lambda( P_L, P_R, N_L, N_R) =
+    \begin{dcases}
+      80\%  & (N_L\equiv 0 \lor N_R \equiv 0)\land (P_L \neq 1 \land P_R \neq 1)\\
+      100\% & \text{otherwise}
+    \end{dcases}
+\]
+\begin{paragraph}
+  \newline Cost:
+\end{paragraph}
+\[
+    C(P_L, P_R, N_L, N_R) = \lambda(P_L, P_R, N_L, N_R)(K_T + K_I ( P_LN_L + P_RN_R))
+\]
+\begin{paragraph}
+  \newline SAH:
+\end{paragraph}
+\begin{algorithm}[caption={Surface Area Heuristic.}, label={alg1}]
+  ($Cost, Side$) SAH($p, V, N_L, N_R, N_P$)
+  {
+    Voxel $V_L, V_R$;
+    voxel_split($p, V,$ &$V_L,$ &$V_R$);
+    $P_L$ = $\frac{SA(V_L)}{SA(V)}$;
+    $P_R$ = $\frac{SA(V_R)}{SA(V)}$;
+    $C_L$ = $C(P_L, P_R, N_L+N_P, N_R)$;
+    $C_R$ = $C(P_L, P_R, N_L, N_R+N_P)$;
+    return min(($C_L$, LEFT), ($C_R$, RIGHT));
+  }
+\end{algorithm}
+\newpage
+\begin{algorithm}[caption={Find Split Plane O(n log n).}, label={alg1}]
+  ($N_L, N_R, N_P, p, side$) find_plane($tree, V, T$)
+  {
+    $best\_cost$ = $\infty$; $best\_p$ = null; $side$ = null; $E$ = null;
+    $best\_N_L$ =  $best\_N_R$ =  $best\_N_P$ = 0;
+
+    for($k$ = 0; $k$ < tree->$k$; $k$++)
+    {
+      $j$ = 0;
+      $E$ = malloc($2 |T|$);
+      for($t$ in $T$)
+      {
+        Voxel $B$;
+        $B$ = voxel_gen_from_tri($t$);
+        $B$ = voxel_clip($B$, $V$);
+        if(voxel_is_planar($B$, $k$))
+        {
+          $E_{j++}$ = {$t$, $B_{min,k}$, $k$, PLANAR};
+        }
+        else
+        {
+          $E_{j++}$ = {$t$, $B_{min,k}$, $k$, START};
+          $E_{j++}$ = {$t$, $B_{max,k}$, $k$, END};
+        }
+      }
+      sort($E$); //sort the events by b
+      $N_L$ = $N_P$ = 0;
+      $N_P$ = $|E|$;
+      for($i$ = 0; $i$ < $|E|$)
+      {
+        $p$ = $E_i$;
+        $P_{START}$ = $P_{END}$ = $P_{PLANAR}$ = 0;
+
+        while($i < |E| \land E[i]_b \equiv  p_b \land E_{type} \equiv$ END)
+        {$P_{END}$++; $i$++;}
+
+        while($i < |E| \land E[i]_b \equiv  p_b \land E_{type} \equiv$ PLANAR)
+        {$P_{PLANAR}$++; $i$++;}
+
+        while($i < |E| \land E[i]_b \equiv  p_b \land E_{type} \equiv$ START)
+        {$P_{START}$++; $i$++;}
+
+        $N_P$ =  $P_{PLANAR}$; $N_R$ -= $P_{PLANAR}$; $N_R$ -= $P_{END}$;
+
+        $sah\_data$ = SAH($k$, $p_b$, $V$, $N_L$, $N_R$, $N_P$);
+
+        if($sah\_data_{Cost} < best\_cost$)
+        {
+          $best\_cost$ = $sah\_data_{Cost}$;
+          $best\_p$    = $p$;
+          $best\_side$ = $sah\_data_{Side}$;
+          $best\_N_L$  = $N_L$; $best\_N_R$  = $N_R$; $best\_N_P$  = $N_P$;
+        }
+        $N_L$ += $P_{PLANAR}$; $N_L$ += $P_{START}$; $N_P$ =  0;
+      }
+    }
+    return ($best\_N_L, best\_N_R, best\_N_P, best\_p, best\_side$);
+  }
+\end{algorithm}
+\newpage
+\begin{algorithm}[caption={Classify.}, label={alg1}]
+  ($T_R, T_L$) classify($tree, T, p, N_L, N_R, N_P$)
+  {
+    $T_L$ = null; $T_R$ = null;
+    $T_L$ = malloc($N_L + N_P$);
+    $T_R$ = malloc($N_R + N_P$);
+    $i_{TL} = i_{TR} = 0$
+    for($t$ < T)
+    {
+      $is\_left = is\_right = false$
+      for($j$ = 0; $j$ < 3; $j$++)
+      {
+        $t_b$ = $t_{j,p_k}$;
+
+        if($t_b$ < $p_b$)
+          $is\_left$ = true;
+
+        if($t_b$ > $p_b$)
+          $is\_right$ = true;
+      }
+
+      if($\neg is\_left \land \neg is\_right$) //planar
+      {
+        if($p_{Side} \equiv RIGHT$)
+          $T_R,{i_{TR++}}$ = $t$;
+        else
+          $T_L,{i_{TL++}}$ = $t$;
+      }
+      if($is\_left$)
+        $T_L,{i_{TL++}}$ = $t$;
+      if($is\_right$)
+        $T_R,{i_{TR++}}$ = $t$;
+    }
+    return ($T_R, T_L$);
+  }
+\end{algorithm}
+\newpage
+\begin{algorithm}[caption={GenerateTree.}, label={alg1}]
+  Node gen_node($tree, V, T, depth$)
+  {
+    Node $n$;
+
+    ($N_L, N_R, N_P, p, side$) = find_plane($tree, V, T$);
+    $n_p$ = $p$;
+
+    if($depth \equiv tree_{max\_depth} \lor p_{cost} > K_I|T|$)
+    {
+      $n_T$ = $T$;
+      return $n$;
+    }
+
+    Voxel $V_L, V_R$;
+    voxel_split($p, V,$ &$V_L,$ &$V_R$);
+    ($T_R, T_L$) = classify($tree, T, p, N_L, N_R, N_P$);
+    $n_{left}$ = gen_node($tree, V_L, T_L, depth+1$);
+    $n_{right}$ = gen_node($tree, V_R, T_R, depth+1$);
+    return $n$;
+  }
+\end{algorithm}
+\newpage
+\begin{algorithm}[caption={Persistent Short Stack K-D Tree Traversal.}, label={alg1}]
+  ($type, node, leaf$) update_state($tree\_buffer, i$)
+  {
+    $type$ = $tree\_buffer_i,_{type}$;
+    $leaf$ = $node$ = null;
+    if($type$ == LEAF)
+    {
+      $leaf$ = $tree\_buffer_i,_{leaf}$;
+    }
+    else //NODE
+    {
+      $node$ = $tree\_buffer_i,_{node}$;
+    }
+
+    return {$type, node, leaf$};
+  }
+
+  ($index, t, u, v$) traverse(ray_buffer, indices, vertices, tree_buffer)
+  {
+    $blocksize_x$ = STREAM_PROCESSORS_PER_SIMT_GROUP;
+    $blocksize_y$ = SIMT_GROUPS_PER_STREAM_MULTIPROCESSOR;
+
+    $x$ = SM_ID % $blocksize_x$; //Id within the SIMT GROUP
+    $y$ = SM_ID / $blocksize_x$; //Id of the SIMT GROUP within the Stream Multiprocessor
+
+    //NOTE: shared memory is called local memory in OpenCL
+    shared volatile next_ray_array[$blocksize_y$]; //shared across all processors in the multiprocessor 
+    shared volatile ray_count_array[$blocksize_y$];
+
+    //NOTE: In the implementation, the warp_counter is initialised on the cpu and copied.
+    global volatile warp_counter; //global memory is shared accross the entire device.
+
+    $next\_ray\_array_y$ = 0;
+    $ray\_count\_array_y$ = 0;
+
+    ($node\_ptr$, $min$, $max$) stack[STACK_SIZE];
+
+    ray $r$;
+    $hit$ = $\begin{bmatrix} 0 \\ 0 \\ 0 \end{bmatrix}$;
+    tringle_index = 0;
+    $t_{min}$ = $t_{max}$ = 0;
+    $scene_{min}$ = 0; $scene_{max}$ = $\infty$;
+    kdtree_node $root$, $node$;
+    kdtree_leaf $leaf$;
+    $current\_type$ = NODE;
+    $pushdown$ = false;
+    ray_index = 0;
+
+    while(true)
+    {
+      //get this SIMT groups ray count
+      shared volatile int* local_pool_ray_count = ray_count_array+y;
+      //get this SIMT groups next ray
+      shared volatile int* local_pool_next_ray  = next_ray_array+y; 
+
+      if($x \equiv 0 \land$ *local_pool_ray_count $\leq$ 0)
+      {
+        *local_pool_next_ray = atomic_add(warp_counter, BATCH_SIZE); //retrieve and incriment
+
+        *local_pool_ray_count = BATCH_SIZE;
+      }
+
+      ray_index = *local_pool_next_ray + x;
+      if(ray_index $\geq |ray\_buffer|$)
+        break;
+
+      if(x $\equiv$ 0)
+      {
+        *local_pool_next_ray += 32;
+        *local_pool_ray_count -= 32;
+      }
+
+      r = ray_buffer[ray_index];
+      $t_{hit}$ = $\infty$
+      ($did\_hit$, $scene_{min}$, $scene_{max}$) = collides_voxel(SCENE_V, r);
+      if(!$did\_hit$)
+        $scene_{max}$ = $\infty$;
+
+      stack.clear();
+      root = $tree\_buffer_0$;
+
+      while($t_{max} < scene_{max}$)
+      {
+        if($|stack|\equiv 0$)
+        {
+          node = root;
+          current_type = NODE;
+          $t_{min}$ = $t_{max}$;
+          $t_{max}$ = $scene_{max}$;
+          pushdown = true;
+        }
+        else //pop a node off the stack
+        {
+          ($index$, $t_{min}$, $t_{max}$) = stack.pop();
+          ($type, node, leaf$) = update_state(tree_buffer, $index$);
+          pushdown = false;
+        }
+
+        while(current_type $\neq$ LEAF)
+        {
+          $t_{split}$ = $\frac{node_b - r_{origin,k}}{r_{dir,k}}$;
+
+          $left\_is\_close$ = ($r_{orig,k} < node_b \lor (r_{orig,k} \equiv node_b \land r_{dir,k} \leq 0)$);
+
+          $first$  = $left\_is\_close$ ? $node_{left}$ : $node_{right}$;
+          $second$ = $left\_is\_close$ ? $node_{right}$ : $node_{left}$;
+
+          if($t_{split} > t_{max} \lor t_{split} \leq 0$)
+            ($type, node, leaf$) = update_state(tree_buffer, $first$);
+          else if($t_{split} < t_{min}$)
+            ($type, node, leaf$) = update_state(tree_buffer, $second$);
+          else
+          {
+            stack.push({second, $t_{split}$, $t_{max}$});
+            ($type, node, leaf$) = update_state(tree_buffer, $first$);
+            $t_{max}$ = $t_{split}$;
+            pushdown = false;
+          }
+          if(pushdown)
+            root = node;
+        }
+
+        for($t$ = 0; $t, |leaf_{num_triangles}|$; $t$++)
+        {
+          vec3 tri[3];
+          offset =  $tree\_buffer_{leaf_{triangle_offset}}$;
+
+          for($j$ = 0; $j$ < 3; $j$++) //read triangle indices
+            $tri_j$ = read_texture(vertices, read_texture(indices, offset+$j$)$_x$)$_{xyz}$;
+
+          $hit\_coords$ = $\begin{bmatrix} 0 \\ 0 \\ 0 \end{bmatrix}$;
+          if(collides_triangle(tri, &$hit\_coords$, r))
+          {
+            if($hit\_coords_t \leq 0$)
+              continue;
+            if($hit\_coords_t < hit_t$)
+            {
+              $hit$ = $hit\_coords$;
+              tri_index = offset;
+            }
+          }
+        }
+      }
+
+      result = {0};
+      if($hit_t \neq \infty$)
+      {
+        result = {tri_indx, $hit_t$, $hit_u$, $hit_v$,};
+      }
+     
+      return result;
+    }
+  }
+\end{algorithm}
+\end{document}
+
+
+

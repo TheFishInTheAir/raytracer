@@ -89,6 +89,18 @@ static float get_random(unsigned int *seed0, unsigned int *seed1)
 	return (res.f - 2.0f) / 2.0f;
 }
 
+uint MWC64X(uint2 *state) //http://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html
+{
+    enum { A=4294883355U};
+    uint x=(*state).x, c=(*state).y;  // Unpack the state
+    uint res=x^c;                     // Calculate the result
+    uint hi=mul_hi(x,A);              // Step the RNG
+    x=x*A+c;
+    c=hi+(x<c);
+    *state=(uint2)(x,c);               // Pack the state back up
+    return res;                       // Return the next result
+}
+
 vec3 reflect(vec3 incidentVec, vec3 normal)
 {
     return incidentVec - 2.f * dot(incidentVec, normal) * normal;

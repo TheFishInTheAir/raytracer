@@ -188,11 +188,11 @@ void create_context(rcl_ctx* ctx)
             case 2: warps_per_sm = 1; break; //FERMI  (GK104/GK110)
             case 3: warps_per_sm = 6; break; //KEPLER (GK104/GK110) NOTE: ONLY 4 WARP SCHEDULERS THOUGH!
             case 5: warps_per_sm = 4; break; //Maxwell
-            case 6: warps_per_sm = 4; break; //PASCAL (GP10)
+            case 6: warps_per_sm = 2; break; //Pascal IT SHOULD BE 2 from the white paper but!!! 1280/32/10 = 4)
             case 7: warps_per_sm = 2; break; //Volta/Turing Might not be correct(NOTE: 16 FP32 PER CORE? what about warps?)
             }
 //Pascal has four warps per sm. Pascal's compute capability is 6
-            warps_per_sm = compute_capability >= 6 ? 4 : 1;
+            //warps_per_sm = compute_capability >= 6 ? 4 : 1;
 
             printf("NVIDIA INFO: SM: %d,  WARP SIZE: %d, COMPUTE CAPABILITY: %d, WARPS PER SM: %d, TOTAL STREAM PROCESSORS: %d\n\n",
                    num_sm, warp_size, compute_capability, warps_per_sm, warps_per_sm*warp_size*num_sm);

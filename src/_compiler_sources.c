@@ -22,7 +22,7 @@
 
 
 //REMOVE FOR PRESENTATION
-//#define DEV_MODE
+#define DEV_MODE
 
 
 

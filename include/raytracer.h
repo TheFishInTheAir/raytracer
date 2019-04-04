@@ -19,8 +19,11 @@
                  "float_average", "mip_single_upsample", "mip_upsample",\
                  "mip_upsample_scaled", "mip_single_upsample_scaled",   \
                  "mip_reduce", "blit_float_to_output",                  \
-                 "blit_float3_to_output", "kdtree_intersection", "kdtree_test_draw"}
-#define NUM_KERNELS 18
+                 "blit_float3_to_output", "kdtree_intersection",        \
+                 "kdtree_test_draw", "segmented_path_trace",            \
+                 "f_buffer_to_byte_buffer_avg", "segmented_path_trace_init", \
+                 "kdtree_ray_draw", "xorshift_batch"}
+#define NUM_KERNELS 23
 #define RAY_CAST_KRNL_INDX 0
 #define RAY_BUFFER_KRNL_INDX 1
 #define PATH_TRACE_KRNL_INDX 2
@@ -39,6 +42,11 @@
 #define BLIT_FLOAT3_OUTPUT_INDX 15
 #define KDTREE_INTERSECTION_INDX 16
 #define KDTREE_TEST_DRAW_INDX 17
+#define SEGMENTED_PATH_TRACE_INDX 18
+#define F_BUF_TO_BYTE_BUF_AVG_KRNL_INDX 19
+#define SEGMENTED_PATH_TRACE_INIT_INDX 20
+#define KDTREE_RAY_DRAW_INDX 21
+#define XORSHIFT_BATCH_INDX 22
 
 typedef struct _rt_ctx raytracer_context;
 

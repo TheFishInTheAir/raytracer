@@ -115,7 +115,7 @@ void run(void* unnused_rn)
 
 
         //TODO: move
-        scene* rscene = load_scene_json_url("scenes/path_obj.rsc");
+        scene* rscene = load_scene_json_url("scenes/path_obj3.rsc");
 
         rctx->stat_scene = rscene;
         rctx->num_samples = 128; //NOTE: add input option for this

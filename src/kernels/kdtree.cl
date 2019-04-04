@@ -17,6 +17,7 @@
 typedef struct
 {
     uchar type;
+
     uint num_triangles;
 } __attribute__ ((aligned (16))) kd_tree_leaf_template;
 
@@ -117,7 +118,7 @@ inline float get_elem(vec3 v, uchar k, kd_44_matrix mask)
 }
 
 //#define B 3*32 //batch size
-#define STACK_SIZE 32 //tune later
+#define STACK_SIZE 16 //tune later
 #define LOAD_BALANCER_BATCH_SIZE        32
 
 //USE: CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE TODO: add const
@@ -136,7 +137,7 @@ __kernel void kdtree_intersection(
     unsigned int num_rays)
 {
 
-    const uint blocksize_x = get_local_size(0)%BLOCKSIZE_X; //should be 32
+    const uint blocksize_x = BLOCKSIZE_X; //should be 32 //NOTE: REMOVED A THING
     const uint blocksize_y = BLOCKSIZE_Y;
 
     uint x = get_local_id(0) % BLOCKSIZE_X; //id within the warp
@@ -146,7 +147,6 @@ __kernel void kdtree_intersection(
     __local volatile int ray_count_array[BLOCKSIZE_Y]; //TODO: make a macro
     next_ray_array[y]  = 0;
     ray_count_array[y] = 0;
-
 
     kd_stack_elem stack[STACK_SIZE]; //honestly im not sure about the plus three, it seems unnecessary (micro optomization)
     uint stack_length = 0;
@@ -169,7 +169,7 @@ __kernel void kdtree_intersection(
     vec2          hit_info = (vec2)(0,0);
     unsigned int  tri_indx;
     float         t_min, t_max;
-    float         scene_t_min = -100000, scene_t_max = 100000;
+    float         scene_t_min = 0, scene_t_max = INFINITY;
     kd_tree_node  node;
     kd_tree_leaf  leaf;
     uchar         current_type = KDTREE_NODE;
@@ -177,6 +177,7 @@ __kernel void kdtree_intersection(
     kd_tree_node  root;
     uint          ray_indx;
     //t_min = t_max = min());//(vec3) SCENE_MIN; //SCENE_MIN is a macro
+    //barrier(0);
     while(true)
     {
         uint tidx = x;//stack[STACK_SIZE + 0]; // SINGLE WARPS WORTH OF WORK 0-32
@@ -188,11 +189,16 @@ __kernel void kdtree_intersection(
         if(tidx == 0 && *local_pool_ray_count <= 0) //only the first work item gets memory
         {
             *local_pool_next_ray = atomic_add(warp_counter, LOAD_BALANCER_BATCH_SIZE); //batch complete
-            // *warp_counter;
+            //*local_pool_next_ray -= LOAD_BALANCER_BATCH_SIZE;
+// *warp_counter;
             *local_pool_ray_count = LOAD_BALANCER_BATCH_SIZE;
         }
+//lol help there are no barriers
+
         {
+
             ray_indx = *local_pool_next_ray + tidx;
+
             if(ray_indx >= num_rays) //ray index is past num rays, work is done
                 break;
 
@@ -203,7 +209,8 @@ __kernel void kdtree_intersection(
             }
 
             r = ray_buffer[ray_indx];
-
+            //r.orig = (vec3)(0,0, -2);
+            //printf("%f %f %f\n", r.orig.x, r.orig.y, r.orig.z);
             //flaot scene_min_t = min(((vec3)SCENE_MIN - ray.origin) * );
 
             //assert(ray_indx<1080*1920);
@@ -224,6 +231,11 @@ __kernel void kdtree_intersection(
                 scene_t_max = -INFINITY;//t_max = INFINITY;
                 //printf("Shit\n");
             }
+            //if(isinf(scene_t_max))
+            //printf("Shit2 (%f %f %f) (%f %f %f)\n",
+            //r.orig.x, r.orig.y, r.orig.z,
+            //r.dir.x,  r.dir.y,  r.dir.z);
+
             t_max = t_min = scene_t_min;
 
             stack_length = 0;
@@ -231,10 +243,13 @@ __kernel void kdtree_intersection(
             //assert(root.left_index == 32);
         }
         stack_length = 0;
+        //barrier(0);
+
         //printf("not bad %u \n", stack_length);
         //if(!(t_max < scene_t_max))
         //printf("REALLY BAD %f < %f\n", t_max, scene_t_max);
-
+        //unsigned int num_times_entered_pdown = 0;
+        //unsigned int nodes_traversed = 0;
         while(t_max < scene_t_max)
         {
             //printf("HIT BOUNDING BOX");
@@ -246,7 +261,7 @@ __kernel void kdtree_intersection(
                 t_min = t_max;
                 t_max = scene_t_max;
                 pushdown = true;
-
+                //num_times_entered_pdown++;
             }
             else
             { //pop
@@ -279,7 +294,7 @@ __kernel void kdtree_intersection(
             while(current_type != KDTREE_LEAF)
             {
                 //printf(":) ok test meme\n");
-
+                //nodes_traversed++;
                 //NOTE: none of this branches
                 unsigned char k = node.k;
                 //assert(k<=2);
@@ -323,8 +338,8 @@ __kernel void kdtree_intersection(
 
                     //update
                     //printf("SL: %u\n", stack_length);
-                    //if(stack_length != 0)
-                        //printf("test meme 1 %llu\n", stack_length);
+                    //if(stack_length >= STACK_SIZE)
+                    //printf("test meme 1 %llu\n", stack_length);
 
                     stack[stack_length++] = (kd_stack_elem) {second, t_split, t_max}; //push
                     kd_update_state(kd_tree, first, &current_type, &node, &leaf);
@@ -365,10 +380,11 @@ __kernel void kdtree_intersection(
                        t);*/
 
                 vec3 hit_coords; // t u v
-                if(does_collide_triangle(tri, &hit_coords, r))
+                if(does_collide_triangle(tri, &hit_coords, r)) //TODO: optomize
                 {
                     //printf("COLLISION\n");
-
+                    if(hit_coords.x<=0)
+                        continue;
                     if(hit_coords.x < t_hit)
                     {
                         t_hit = hit_coords.x;     //t
@@ -380,7 +396,9 @@ __kernel void kdtree_intersection(
                     if(t_hit < t_min) // goes by closest to furthest, so if it hits it will be the closest
                     {//early exit
                         //remove that
-                        break; //TODO: do something
+                        //printf("update\n");
+                        scene_t_min = -INFINITY;
+                        //break; //TODO: do something NOTE: COULD BE EVEN FASTER WHEN I ACTUALLY FIX THIS
                     }
                 }
 
@@ -398,14 +416,46 @@ __kernel void kdtree_intersection(
             result.u = hit_info.x;
             result.v = hit_info.y;
             //printf("GOOD %d %u\n", ray_indx, (int)tri_indx);
+            //printf("Good (%f %f %f) (%f %f %f) %f %u %u\n",
+            //r.orig.x, r.orig.y, r.orig.z,
+            //r.dir.x,  r.dir.y,  r.dir.z,
+            //scene_t_min, num_times_entered_pdown,
+            //nodes_traversed);
         }
         else
         {
-            //printf("No Collision\n");
+            //printf("Shit1 (%f %f %f) (%f %f %f) %f %u %u\n",
+            //r.orig.x, r.orig.y, r.orig.z,
+            //r.dir.x,  r.dir.y,  r.dir.z,
+            //scene_t_min, num_times_entered_pdown,
+            //nodes_traversed);
+            //printf("No Collision (%f, %f, %f) %d %f %f\n",
+            //r.orig.x, r.orig.y, r.orig.z, stack_length, t_max, scene_t_max);
         }
+
         out_buf[ray_indx] = result;
     }
 
+}
+
+__kernel void kdtree_ray_draw(
+    __global unsigned int* out_tex,
+    __global ray* rays,
+
+    const unsigned int width)
+{
+    const vec4 sky = (vec4) (0.84, 0.87, 0.93, 0);
+    //return;
+    int id = get_global_id(0);
+    int x  = id%width;
+    int y  = id/width;
+    int offset = x+y*width;
+
+    ray r = rays[offset];
+
+    r.orig = (r.orig+1) / 2;
+
+    out_tex[offset] = get_colour( (vec4) (r.orig,1) );
 }
 
 

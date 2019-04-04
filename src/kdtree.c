@@ -106,7 +106,7 @@ kd_tree_event_buffer kd_tree_merge_event_buffers(kd_tree_event_buffer buf1, kd_t
     kd_tree_event_buffer event_out;
     event_out.num_events = buf1.num_events + buf2.num_events;
 
-    event_out.events = (kd_tree_event*) alloca(sizeof(kd_tree_event) * event_out.num_events);
+    event_out.events = (kd_tree_event*) malloc(sizeof(kd_tree_event) * event_out.num_events);
 
 
     uint32_t buf1_i, buf2_i, eo_i;
@@ -134,7 +134,7 @@ kd_tree_event_buffer kd_tree_merge_event_buffers(kd_tree_event_buffer buf1, kd_t
     }
     assert(eo_i == event_out.num_events);
     memcpy(buf1.events, event_out.events, sizeof(kd_tree_event) * event_out.num_events);
-
+    free(event_out.events);
     event_out.events = buf1.events;
 
     return event_out;
@@ -223,8 +223,6 @@ kd_tree_find_plane_results kd_tree_find_plane(kd_tree* tree, AABB V,// ivec3* in
     for(int k = 0; k < tree->k; k++)
     {
         kd_tree_event_buffer event_buf = {NULL, 0}; //gets rid of an initialization warning I guess?
-
-
         {// Generate events
             //Divide by three because we only want tris
             event_buf.num_events = tri_buf.num_triangles*2;
@@ -400,7 +398,6 @@ kd_tree_node* kd_tree_construct_rec(kd_tree* tree, AABB V, kd_tree_triangle_buff
     kd_tree_node* node = kd_tree_node_init();
 
     tree->num_nodes_total++;
-
     if(kd_tree_should_terminate(tree, tri_buf.num_triangles, V, depth))
     {
         node->triangles = tri_buf;

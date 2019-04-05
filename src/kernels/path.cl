@@ -145,7 +145,7 @@ __kernel void segmented_path_trace(
 
     spath_progress spd = spath_data[offset];
 
-    if(spd.sample_num==1024) //get this from the cpu
+    if(spd.sample_num==256) //get this from the cpu
     {
         ray nr;
         nr.orig = (vec3)(0);

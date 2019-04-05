@@ -148,19 +148,17 @@ void spath_raytracer_kd_collision(spath_raytracer_context* sprctx)
     clSetKernelArg(kernel, 3, sizeof(cl_mem), &sprctx->rctx->stat_scene->cl_mesh_buffer);
     clSetKernelArg(kernel, 4, sizeof(cl_mem), &sprctx->rctx->stat_scene->cl_mesh_index_buffer.image);
     clSetKernelArg(kernel, 5, sizeof(cl_mem), &sprctx->rctx->stat_scene->cl_mesh_vert_buffer.image);
-    //clSetKernelArg(kernel, 6, sizeof(cl_mem), &sprctx->cl_bad_api_design_buffer); //TEST
+
     clSetKernelArg(kernel, 6, sizeof(cl_mem), &sprctx->rctx->stat_scene->kdt->cl_kd_tree_buffer);
     //NOTE: WILL NOT WORK WITH ALL SITUATIONS:
     unsigned int num_rays = sprctx->rctx->width*sprctx->rctx->height;
     clSetKernelArg(kernel, 7, sizeof(unsigned int), &num_rays);
 
 
-    //clGetDeviceInfo(prctx->rctx->CL_DEVICE_MAX_COMPUTE_UNITS)
+
 
     size_t global[1] = {sprctx->rctx->rcl->num_cores*16};//ok I give up with the peristent threading.
     size_t local[1]  = {sprctx->rctx->rcl->simt_size * sprctx->rctx->rcl->num_simt_per_multiprocessor};//sprctx->rctx->rcl->simt_size; sprctx->rctx->rcl->num_simt_per_multiprocessor
-    //printf("\n\n\n\n STARTING KD TREE INTERSECTION KERNEL \n\n\n\n\n");
-    //fflush(stdout);
 
     err = clEnqueueNDRangeKernel(sprctx->rctx->rcl->commands, kernel, 1,
                                  NULL, global, local, 0, NULL, NULL);
@@ -169,21 +167,6 @@ void spath_raytracer_kd_collision(spath_raytracer_context* sprctx)
     err = clFinish(sprctx->rctx->rcl->commands);
     ASRT_CL("Something happened while executing kd tree traversal kernel");
 
-    /* if(sprctx->current_iteration==1) */
-    /* { */
-    /*     { */
-    /*         err = clEnqueueCopyBuffer(sprctx->rctx->rcl->commands, */
-    /*                                   sprctx->cl_path_collision_result_buffer, */
-    /*                                   sprctx->cl_path_origin_collision_result_buffer, */
-    /*                                   0, 0, sprctx->rctx->width*sprctx->rctx->height* */
-    /*                                   sizeof(kd_tree_collision_result), */
-    /*                                   0, NULL, NULL); */
-    /*         ASRT_CL("Couldn't Copy Result Buffers"); */
-
-    /*         err = clFinish(sprctx->rctx->rcl->commands); */
-    /*         ASRT_CL("Something happened while waiting for ray copy to finish"); */
-    /*     } */
-    /* } */
 }
 
 void spath_raytracer_ray_test(spath_raytracer_context* sprctx)
@@ -212,7 +195,7 @@ void spath_raytracer_ray_test(spath_raytracer_context* sprctx)
                               sprctx->rctx->width*sprctx->rctx->height*sizeof(int),
                               sprctx->rctx->output_buffer, 0, NULL, NULL );
     ASRT_CL("Failed to read output array");
-    //printf("FINISHED KD TREE COLLISION\n");
+
 }
 
 void spath_raytracer_kd_test(spath_raytracer_context* sprctx)
@@ -230,7 +213,6 @@ void spath_raytracer_kd_test(spath_raytracer_context* sprctx)
     clSetKernelArg(kernel, 5, sizeof(cl_mem), &sprctx->rctx->stat_scene->cl_mesh_vert_buffer.image);
     clSetKernelArg(kernel, 6, sizeof(cl_mem), &sprctx->rctx->stat_scene->cl_mesh_nrml_buffer.image);
 
-    //clSetKernelArg(kernel, 6, sizeof(cl_mem), &sprctx->cl_bad_api_design_buffer); //TEST
     clSetKernelArg(kernel, 7, sizeof(unsigned int), &sprctx->rctx->width);
     //NOTE: WILL NOT WORK WITH ALL SITUATIONS:
     unsigned int num_rays = sprctx->rctx->width*sprctx->rctx->height;
@@ -243,13 +225,12 @@ void spath_raytracer_kd_test(spath_raytracer_context* sprctx)
     ASRT_CL("Failed to execute kd tree traversal kernel");
 
     err = clFinish(sprctx->rctx->rcl->commands);
-    ASRT_CL("Something happened while executing kd tree traversal kernel");
+    ASRT_CL("Something happened while executing kd tree test kernel");
 
     err = clEnqueueReadBuffer(sprctx->rctx->rcl->commands, sprctx->rctx->cl_output_buffer, CL_TRUE, 0,
                               sprctx->rctx->width*sprctx->rctx->height*sizeof(int),
                               sprctx->rctx->output_buffer, 0, NULL, NULL );
     ASRT_CL("Failed to read output array");
-    //printf("FINISHED KD TREE COLLISION\n");
 }
 
 void spath_raytracer_xor_rng(spath_raytracer_context* sprctx)
@@ -298,7 +279,7 @@ void spath_raytracer_avg_to_out(spath_raytracer_context* sprctx)
 void spath_raytracer_trace_init(spath_raytracer_context* sprctx)
 {
     int err;
-    unsigned int random_value_WACKO = rand();// sprctx->current_iteration; //TODO: make an actual random number
+    unsigned int random_value_WACKO = rand();
     cl_kernel kernel = sprctx->rctx->program->raw_kernels[SEGMENTED_PATH_TRACE_INIT_INDX];
 
     clSetKernelArg(kernel, 0, sizeof(cl_mem), &sprctx->cl_path_output_buffer);
@@ -321,9 +302,6 @@ void spath_raytracer_trace_init(spath_raytracer_context* sprctx)
     clSetKernelArg(kernel, 11, sizeof(unsigned int), &sprctx->rctx->width);
     clSetKernelArg(kernel, 12, sizeof(unsigned int), &random_value_WACKO);
 
-//NOTE: WILL NOT WORK WITH ALL SITUATIONS:
-    //unsigned int num_rays = sprctx->rctx->width*sprctx->rctx->height;
-
 
     size_t global[1] = {sprctx->rctx->width*sprctx->rctx->height};
 
@@ -334,8 +312,6 @@ void spath_raytracer_trace_init(spath_raytracer_context* sprctx)
     err = clFinish(sprctx->rctx->rcl->commands);
     ASRT_CL("Something happened while executing kd init kernel");
 
-
-    //printf("FINISHED KD TREE COLLISION\n");
 }
 
 void spath_raytracer_trace(spath_raytracer_context* sprctx)
@@ -363,9 +339,6 @@ void spath_raytracer_trace(spath_raytracer_context* sprctx)
 
     clSetKernelArg(kernel, karg++, sizeof(unsigned int), &sprctx->rctx->width);
     clSetKernelArg(kernel, karg++, sizeof(unsigned int), &random_value_WACKO);
-    //NOTE: WILL NOT WORK WITH ALL SITUATIONS:
-    //unsigned int num_rays = sprctx->rctx->width*sprctx->rctx->height;
-
 
     size_t global[1] = {sprctx->rctx->width*sprctx->rctx->height};
 
@@ -376,8 +349,6 @@ void spath_raytracer_trace(spath_raytracer_context* sprctx)
     err = clFinish(sprctx->rctx->rcl->commands);
     ASRT_CL("Something happened while executing kd tree traversal kernel");
 
-
-    //printf("FINISHED KD TREE COLLISION\n");
 }
 
 void spath_raytracer_render(spath_raytracer_context* sprctx)
@@ -420,7 +391,7 @@ void spath_raytracer_prepass(spath_raytracer_context* sprctx)
 {
     printf("Starting Split Path Raytracer Prepass. \n");
     sprctx->render_complete = false;
-    sprctx->num_iterations = 1024*4;//arbitrary default
+    sprctx->num_iterations = 256*4;//arbitrary default
     srand((unsigned int)os_get_time_mili(abst));
     sprctx->start_time = (unsigned int) os_get_time_mili(abst);
     bad_buf_update(sprctx);
@@ -436,12 +407,10 @@ void spath_raytracer_prepass(spath_raytracer_context* sprctx)
                 sprctx->rctx->width*sprctx->rctx->height*sizeof(spath_progress));
     _raytracer_gen_ray_buffer(sprctx->rctx);
 
-    //sprctx->segment_width = sprctx->rctx->width/8;
-    //sprctx->segment_offset = 0;
-    int t1 = os_get_time_mili(abst);
+
+
     spath_raytracer_kd_collision(sprctx);
-    int t2 = os_get_time_mili(abst);
-    printf("TIME DIF %d \n", t2-t1);
+
     spath_raytracer_trace_init(sprctx);
 
     spath_raytracer_update_random(sprctx);

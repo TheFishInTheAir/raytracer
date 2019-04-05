@@ -188,11 +188,9 @@ void create_context(rcl_ctx* ctx)
             case 2: warps_per_sm = 1; break; //FERMI  (GK104/GK110)
             case 3: warps_per_sm = 6; break; //KEPLER (GK104/GK110) NOTE: ONLY 4 WARP SCHEDULERS THOUGH!
             case 5: warps_per_sm = 4; break; //Maxwell
-            case 6: warps_per_sm = 2; break; //Pascal IT SHOULD BE 2 from the white paper but!!! 1280/32/10 = 4)
+            case 6: warps_per_sm = 4; break; //Pascal is confusing because the sms vary a lot. GP100 is 2, but GP104 and GP106 have 4
             case 7: warps_per_sm = 2; break; //Volta/Turing Might not be correct(NOTE: 16 FP32 PER CORE? what about warps?)
             }
-//Pascal has four warps per sm. Pascal's compute capability is 6
-            //warps_per_sm = compute_capability >= 6 ? 4 : 1;
 
             printf("NVIDIA INFO: SM: %d,  WARP SIZE: %d, COMPUTE CAPABILITY: %d, WARPS PER SM: %d, TOTAL STREAM PROCESSORS: %d\n\n",
                    num_sm, warp_size, compute_capability, warps_per_sm, warps_per_sm*warp_size*num_sm);
@@ -204,12 +202,12 @@ void create_context(rcl_ctx* ctx)
         }
         case(0x1002): //AMD
         {
-            printf("");
+            printf("AMD GPU INFO NOT SUPPORTED YET!\n");
             break;
         }
         case(0x8086): //INTEL
         {
-
+            printf("INTEL INFO NOT SUPPORTED YET!\n");
             break;
         }
         }
@@ -271,7 +269,7 @@ rcl_img_buf gen_1d_image_buffer(raytracer_context* rctx, size_t t, void* ptr)
 	cl_standard_format.image_channel_data_type = CL_FLOAT; //prob should be float
 
     cl_standard_descriptor.image_type = CL_MEM_OBJECT_IMAGE1D_BUFFER;
-	cl_standard_descriptor.image_width = t/4 == 0 ? 1 : t/sizeof(float)/4;// t / 4 == 0 ? 1 : t / 4; //what?
+	cl_standard_descriptor.image_width = t/4 == 0 ? 1 : t/sizeof(float)/4;
     cl_standard_descriptor.image_height = 0;
     cl_standard_descriptor.image_depth  = 0;
     cl_standard_descriptor.image_array_size  = 0;
@@ -280,17 +278,6 @@ rcl_img_buf gen_1d_image_buffer(raytracer_context* rctx, size_t t, void* ptr)
     cl_standard_descriptor.num_mip_levels = 0;
     cl_standard_descriptor.num_samples = 0;
     cl_standard_descriptor.buffer = ib.buffer;
-
-
-    /*
-    size_t return_val;
-    err = clGetDeviceInfo (rctx->rcl->device_id,
-                           CL_DEVICE_IMAGE_MAX_BUFFER_SIZE,
-                           sizeof(size_t),
-                           &return_val,
-                           NULL);
-    printf("%zd %zd  out of: %zd\n", t, cl_standard_descriptor.image_width, return_val);
-    */
 
 
     ib.image = clCreateImage(rctx->rcl->context,
@@ -324,15 +311,6 @@ cl_mem gen_1d_image(raytracer_context* rctx, size_t t, void* ptr)
 
 
     int err = CL_SUCCESS;
-
-    /*size_t return_val;
-    err = clGetDeviceInfo (rctx->rcl->device_id,
-                           CL_DEVICE_IMAGE_MAX_BUFFER_SIZE,
-                           sizeof(size_t),
-                           &return_val,
-                           NULL);
-    printf("%zd %zd  out of: %zd\n", t, cl_standard_descriptor.image_width, return_val);*/
-
 
 
     cl_mem img = clCreateImage(rctx->rcl->context,

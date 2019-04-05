@@ -7,6 +7,7 @@
 void ss_raytracer_render(ss_raytracer_context* srctx)
 {
     int err;
+    int start_time = os_get_time_mili(abst);
 
     //TODO: @REFACTOR and remove prefix underscore and move to prepass
     _raytracer_gen_ray_buffer(srctx->rctx);
@@ -45,6 +46,7 @@ void ss_raytracer_render(ss_raytracer_context* srctx)
                               srctx->rctx->output_buffer, 0, NULL, NULL );
     ASRT_CL("Failed to read output array");
 
+    printf("SS Render Took %d ms.\n", os_get_time_mili(abst)-start_time);
 }
 
 ss_raytracer_context* init_ss_raytracer_context(struct _rt_ctx* rctx)

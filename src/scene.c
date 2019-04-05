@@ -77,7 +77,6 @@ void scene_resource_push(raytracer_context* rctx)
     kd_tree_generate_serialized(rctx->stat_scene->kdt);
 
 //NOTE: SUPER SCUFFED
-    //TODO: make this an image buffer.
     if(rctx->stat_scene->kdt->cl_kd_tree_buffer == NULL)
     {
         rctx->stat_scene->kdt->cl_kd_tree_buffer =
@@ -86,9 +85,6 @@ void scene_resource_push(raytracer_context* rctx)
                            rctx->stat_scene->kdt->buffer_size,
                            rctx->stat_scene->kdt->buffer, &err);
         ASRT_CL("Couldn't create kd tree buffer.");
-        //rctx->stat_scene->kdt->cl_kd_tree_buffer =
-        //gen_1d_image(rctx, rctx->stat_scene->kdt->buffer_size,
-        //rctx->stat_scene->kdt->buffer);
     }
     printf("Pushing Buffers...");
     if(rctx->stat_scene->meshes_changed)

@@ -19,8 +19,8 @@ typedef struct W_ALIGN(16) _skd_tree_traversal_node
     uint8_t k;
     float   b;
 
-    size_t left_ind;   //NOTE: always going to be aligned by at least 4 (could multiply by four on gpu)
-    size_t right_ind;  //NOTE: I GIVE UP WITH LONGS JUST USE SIZE_T!
+    size_t left_ind;   //NOTE: always going to be aligned by at least 8 (could multiply by 8 on gpu)
+    size_t right_ind;
 } U_ALIGN(16) _skd_tree_traversal_node;
 
 
@@ -52,11 +52,11 @@ typedef struct kd_tree_collision_result
 //NOTE: should the depth be stored in here?
 typedef struct kd_tree_node
 {
-    uint8_t k; //Splittign Axis                  Bytes: 1, 1
-    float   b; //World Split plane               Bytes: 4, 5
+    uint8_t k; //Splittign Axis
+    float   b; //World Split plane
 
-    struct kd_tree_node* left; //                       Bytes: 8, 13  NOTE: this could prob be stored as uint
-    struct kd_tree_node* right;//                       Bytes: 8, 21
+    struct kd_tree_node* left;
+    struct kd_tree_node* right;
 
     kd_tree_triangle_buffer triangles;
 

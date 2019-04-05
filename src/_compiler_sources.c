@@ -15,7 +15,6 @@
 #include <parson.c>
 
 #ifdef _WIN32
-//#define _MSC_VER //NOTE: this is necessary for OpenCL I know its not good
 #define WIN32 // I don't want to fix all of my accidents right now.
 #endif
 
@@ -28,18 +27,9 @@
 
 #ifdef WIN32
 #include <win32.c>
-//#else
-//#include <osx.m>
-#endif
-
-//TODO: should put in a header
-/*#ifdef WIN32
-#define W_ALIGN(x) __declspec( align (x) )
-#define U_ALIGN(x) /*nothing*//*
 #else
-#define W_ALIGN(x) /*nothing*//*
-#define U_ALIGN(x) __attribute__ (( aligned (x) ))
-#endif*/
+#include <osx.m>
+#endif
 
 //#define _MEM_DEBUG //Enable verbose memory allocation, movement and freeing
 

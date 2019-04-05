@@ -147,10 +147,12 @@ void path_raytracer_push_path(path_raytracer_context* prctx)
 
 void path_raytracer_render(path_raytracer_context* prctx)
 {
+    int local_start_time = os_get_time_mili(abst);
     prctx->current_sample++;
     if(prctx->current_sample>prctx->num_samples)
     {
         prctx->render_complete = true;
+        printf("Render took %d ms\n", os_get_time_mili(abst)-prctx->start_time);
         return;
     }
     _raytracer_gen_ray_buffer(prctx->rctx);
@@ -176,11 +178,12 @@ void path_raytracer_render(path_raytracer_context* prctx)
     }
     path_raytracer_average_buffers(prctx);
     path_raytracer_push_path(prctx);
+    printf("Total time for sample group: %d\n", os_get_time_mili(abst)-local_start_time);
 }
 
 void path_raytracer_prepass(path_raytracer_context* prctx)
 {
     raytracer_prepass(prctx->rctx); //Nothing Special
     prctx->current_sample = 0;
-
+    prctx->start_time = os_get_time_mili(abst);
 }

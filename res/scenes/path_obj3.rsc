@@ -67,6 +67,18 @@
             "sz":1,
 
             "___COMMENT___":"need to add rotation"
+        },
+        {
+            "url":"mesh/indigo_happy_walls.obj",
+            "mat_index": 0,
+            "px":0,
+            "py":0,
+            "pz":0,
+            "sx":1,
+            "sy":1,
+            "sz":1,
+
+            "___COMMENT___":"need to add rotation"
         }
     ],
 

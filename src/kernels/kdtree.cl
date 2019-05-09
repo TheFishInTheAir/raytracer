@@ -56,7 +56,7 @@ typedef struct kd_stack_elem
 typedef __global uint4* kd_44_matrix;
 
 
-void kd_update_state(__global char* kd_tree, ulong indx, uchar* type,
+void kd_update_state(__global long* kd_tree, ulong indx, uchar* type,
                      kd_tree_node* node, kd_tree_leaf* leaf)
 {
 
@@ -69,7 +69,7 @@ void kd_update_state(__global char* kd_tree, ulong indx, uchar* type,
         leaf->type = template.type;
         leaf->num_triangles = template.num_triangles;
 
-        leaf->triangle_start = indx + sizeof(kd_tree_leaf_template);
+        leaf->triangle_start = indx + sizeof(kd_tree_leaf_template)/8;
     }
     else
         *node = *((__global kd_tree_node*) (kd_tree + indx));
@@ -103,11 +103,11 @@ inline float get_elem(vec3 v, uchar k, kd_44_matrix mask)
     return nv.x + nv.y + nv.z;
 }
 
-//#define B 3*32 //batch size
+#define BLOCKSIZE_Y 1
 #define STACK_SIZE 16 //tune later
-#define LOAD_BALANCER_BATCH_SIZE        32
+#define LOAD_BALANCER_BATCH_SIZE        32*3
 
-
+//#define BLOCKSIZE_Y 1 //NOTE: TEST
 __kernel void kdtree_intersection(
     __global kd_tree_collision_result* out_buf,
     __global ray* ray_buffer, //TODO: make vec4
@@ -118,7 +118,7 @@ __kernel void kdtree_intersection(
     __global mesh* meshes,
     image1d_buffer_t     indices,
     image1d_buffer_t     vertices,
-    __global char* kd_tree,   //TODO: use a higher allignment type
+    __global long* kd_tree,   //TODO: use a higher allignment type
 
     unsigned int num_rays)
 {
@@ -126,6 +126,7 @@ __kernel void kdtree_intersection(
     const uint blocksize_x = BLOCKSIZE_X; //should be 32 //NOTE: REMOVED A THING
     const uint blocksize_y = BLOCKSIZE_Y;
 
+    //NOTE: not technically correct, but kinda is
     uint x = get_local_id(0) % BLOCKSIZE_X; //id within the warp
     uint y = get_local_id(0) / BLOCKSIZE_X; //id of the warp in the SM
 
@@ -133,7 +134,8 @@ __kernel void kdtree_intersection(
     __local volatile int ray_count_array[BLOCKSIZE_Y];
     next_ray_array[y]  = 0;
     ray_count_array[y] = 0;
-
+    //printf("%llu", get_global_id(0));
+    //printf("%llu %llu %llu    ", get_local_size(0), get_num_groups(0), get_global_size(0));
     kd_stack_elem stack[STACK_SIZE];
     uint stack_length = 0;
 
@@ -160,31 +162,34 @@ __kernel void kdtree_intersection(
     {
         uint tidx = x; // SINGLE WARPS WORTH OF WORK 0-32
         uint widx = y; // WARPS PER SM 0-4 (for example)
-        __local volatile int* local_pool_ray_count = ray_count_array+widx;
+        __local volatile int* local_pool_ray_count = ray_count_array+widx; //get warp ids pool
         __local volatile int* local_pool_next_ray  = next_ray_array+widx;
 
         //Grab new rays
-        if(tidx == 0 && *local_pool_ray_count <= 0) //only the first work item gets memory
+        if(tidx == 0 && *local_pool_ray_count <= 0) //only the first work (of the pool) item gets memory
         {
             *local_pool_next_ray = atomic_add(warp_counter, LOAD_BALANCER_BATCH_SIZE); //batch complete
 
 
             *local_pool_ray_count = LOAD_BALANCER_BATCH_SIZE;
         }
-//lol help there are no barriers
+        barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
 
+//lol help there are no barriers
         {
 
             ray_indx = *local_pool_next_ray + tidx;
+            barrier(CLK_LOCAL_MEM_FENCE);
 
             if(ray_indx >= num_rays) //ray index is past num rays, work is done
                 break;
 
-            if(tidx == 0)
+            if(tidx == 0) //NOTE: this doesn't guarentee
             {
-                *local_pool_next_ray += 32;
-                *local_pool_ray_count -= 32;
+                *local_pool_next_ray  += BLOCKSIZE_X;
+                *local_pool_ray_count -= BLOCKSIZE_X;
             }
+            barrier(CLK_LOCAL_MEM_FENCE);
 
             r = ray_buffer[ray_indx];
 
@@ -193,7 +198,6 @@ __kernel void kdtree_intersection(
             if(!getTBoundingBox((vec3) SCENE_MIN, (vec3) SCENE_MAX, r, &scene_t_min, &scene_t_max)) //SCENE_MIN is a macro
             {
                 scene_t_max = -INFINITY;
-
             }
 
 
@@ -203,7 +207,7 @@ __kernel void kdtree_intersection(
             root = *((__global kd_tree_node*) kd_tree);
         }
         stack_length = 0;
-
+        //barrier(CLK_LOCAL_MEM_FENCE);
         while(t_max < scene_t_max)
         {
 
@@ -243,6 +247,19 @@ __kernel void kdtree_intersection(
                 ulong second = select(node.left_index, node.right_index,
                                       thing);
 
+
+                kd_update_state(kd_tree,
+                                ( t_split > t_max || t_split <= 0)||!(t_split < t_min) ? first : second,
+                                &current_type, &node, &leaf);
+
+                if( !(t_split > t_max || t_split <= 0) && !(t_split < t_min))
+                {
+                    stack[stack_length++] = (kd_stack_elem) {second, t_split, t_max}; //push
+                    t_max = t_split;
+                    pushdown = false;
+                }
+
+                /*
                 if( t_split > t_max || t_split <= 0)  //NOTE: branching necessary
                 {
                     kd_update_state(kd_tree, first, &current_type, &node, &leaf);
@@ -260,26 +277,23 @@ __kernel void kdtree_intersection(
 
                     t_max = t_split;
                     pushdown = false;
-                }
+                    }*/
 
-                if(pushdown)
-                {
-                    root = node;//UPDATE
-                }
+                root = pushdown ? node : root;
 
             }
-
+            //barrier(0);
             //Found leaf
             for(ulong t = 0; t <leaf.num_triangles; t++)
             {
                 //assert(leaf.triangle_start-t == 0);
                 vec3 tri[4];
                 unsigned int index_offset =
-                    *(__global uint*)(kd_tree+leaf.triangle_start+(t*sizeof(unsigned int)));
+                    *((__global uint*)(kd_tree+leaf.triangle_start)+t);
                 //get vertex (first element of each index)
-                int4 idx_0 = read_imagei(indices, index_offset+0);
-                int4 idx_1 = read_imagei(indices, index_offset+1);
-                int4 idx_2 = read_imagei(indices, index_offset+2);
+                const int4 idx_0 = read_imagei(indices, index_offset+0);
+                const int4 idx_1 = read_imagei(indices, index_offset+1);
+                const int4 idx_2 = read_imagei(indices, index_offset+2);
 
                 tri[0] = read_imagef(vertices, idx_0.x).xyz;
                 tri[1] = read_imagef(vertices, idx_1.x).xyz;
@@ -301,19 +315,21 @@ __kernel void kdtree_intersection(
                         t_hit = hit_coords.x;     //t
                         hit_info = hit_coords.yz; //u v
                         tri_indx = index_offset;
+
+                        if(t_hit < t_min) // goes by closest to furthest, so if it hits it will be the closest
+                        {//early exit
+                            //remove that
+
+                            //scene_t_min = -INFINITY;
+                            //scene_t_max = -INFINITY;
+                            //break;
+                        }
+
                     }
 
-                    if(t_hit < t_min) // goes by closest to furthest, so if it hits it will be the closest
-                    {//early exit
-                        //remove that
-
-                        scene_t_min = -INFINITY;
-                        //break; //TODO: do something NOTE: COULD BE EVEN FASTER WHEN I ACTUALLY FIX THIS
-                    }
                 }
 
             }
-
 
         }
         //By this point a triangle will have been found.

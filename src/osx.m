@@ -30,21 +30,6 @@ typedef struct
 //NOTE: probably not good
 static osx_ctx* ctx;
 
-//Create OS Virtual Function Struct
-os_abs init_osx_abs()
-{
-    os_abs abstraction;
-    abstraction.start_func = &osx_start;
-    abstraction.loop_start_func = &osx_loop_start;
-    abstraction.update_func = &osx_enqueue_update;
-    abstraction.sleep_func = &osx_sleep;
-    abstraction.get_bitmap_memory_func = &osx_get_bitmap_memory;
-    abstraction.get_time_mili_func = &osx_get_time_mili;
-    abstraction.get_width_func = &osx_get_width;
-    abstraction.get_height_func = &osx_get_height;
-    abstraction.start_thread_func = &osx_start_thread;
-    return abstraction;
-}
 
 void osx_sleep(int miliseconds)
 {
@@ -80,8 +65,6 @@ int osx_get_height()
     return ctx->height;
 }
 
-
-
 void initBitmapData(unsigned char* bmap, float offset, unsigned int width, unsigned int height)
 {
     int pitch = width*4;
@@ -106,6 +89,30 @@ void initBitmapData(unsigned char* bmap, float offset, unsigned int width, unsig
         }
         row += pitch;
     }
+}
+
+void doesnt_work_on_osx()
+{
+    //printf("I hope this works.\n");
+    initBitmapData(ctx->bitmap_memory, 0, ctx->width, ctx->height);
+}
+
+
+//Create OS Virtual Function Struct
+os_abs init_osx_abs()
+{
+    os_abs abstraction;
+    abstraction.start_func = &osx_start;
+    abstraction.loop_start_func = &osx_loop_start;
+    abstraction.update_func = &osx_enqueue_update;
+    abstraction.sleep_func = &osx_sleep;
+    abstraction.get_bitmap_memory_func = &osx_get_bitmap_memory;
+    abstraction.get_time_mili_func = &osx_get_time_mili;
+    abstraction.get_width_func = &osx_get_width;
+    abstraction.get_height_func = &osx_get_height;
+    abstraction.start_thread_func = &osx_start_thread;
+    abstraction.draw_weird = &doesnt_work_on_osx;
+    return abstraction;
 }
 
 
@@ -226,7 +233,7 @@ void osx_start()
     ctx->width  = 800;
     ctx->height = 800;
     ctx->main_queue = dispatch_get_main_queue();
-    ctx->bitmap_memory = malloc(ctx->width*ctx->height*4);
+    ctx->bitmap_memory = malloc(ctx->width*ctx->height*sizeof(int));
 
     [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];

@@ -26,7 +26,7 @@ typedef struct kd_tree_sah_results
     uint8_t side; //1 left, 2 right
 } kd_tree_sah_results;
 
-inline kd_tree_sah_results kd_tree_sah_results_c(float cost, uint8_t side)
+kd_tree_sah_results kd_tree_sah_results_c(float cost, uint8_t side)
 {
     kd_tree_sah_results r;
     r.cost = cost;
@@ -46,7 +46,7 @@ typedef struct kd_tree_find_plane_results
 } kd_tree_find_plane_results;
 
 
-inline bool kd_tree_event_lt(kd_tree_event* left, kd_tree_event* right)
+bool kd_tree_event_lt(kd_tree_event* left, kd_tree_event* right)
 {
     return
         (left->b <  right->b)                             ||
@@ -452,7 +452,7 @@ void kd_tree_construct(kd_tree* tree) //O(n log^2 n) implementation
     tree->root = kd_tree_construct_rec(tree, V, kd_tree_gen_initial_tri_buf(tree), 0);
 }
 
-inline unsigned int _kd_tree_write_buf(char* buffer, unsigned int offset,
+unsigned int _kd_tree_write_buf(char* buffer, unsigned int offset,
                                                    void* data, size_t size)
 {
     memcpy(buffer+offset, data, size);

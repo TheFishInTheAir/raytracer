@@ -291,13 +291,13 @@ __kernel void kdtree_intersection(
                 unsigned int index_offset =
                     *((__global uint*)(kd_tree+leaf.triangle_start)+t);
                 //get vertex (first element of each index)
-                const int4 idx_0 = read_imagei(indices, index_offset+0);
-                const int4 idx_1 = read_imagei(indices, index_offset+1);
-                const int4 idx_2 = read_imagei(indices, index_offset+2);
+                const int4 idx_0 = read_imagei(indices, (int)index_offset+0);
+                const int4 idx_1 = read_imagei(indices, (int)index_offset+1);
+                const int4 idx_2 = read_imagei(indices, (int)index_offset+2);
 
-                tri[0] = read_imagef(vertices, idx_0.x).xyz;
-                tri[1] = read_imagef(vertices, idx_1.x).xyz;
-                tri[2] = read_imagef(vertices, idx_2.x).xyz;
+                tri[0] = read_imagef(vertices, (int)idx_0.x).xyz;
+                tri[1] = read_imagef(vertices, (int)idx_1.x).xyz;
+                tri[2] = read_imagef(vertices, (int)idx_2.x).xyz;
                 /*printf("%f %f %f : %f %f %f : %f %f %f %llu\n",
                        tri[0].x, tri[0].y, tri[0].z,
                        tri[1].x, tri[1].y, tri[1].z,
@@ -395,16 +395,16 @@ __kernel void kdtree_test_draw(
         out_tex[offset] = get_colour( (vec4) (0) );
         return;
     }
-    int4 i1 = read_imagei(indices, res.triangle_index);
-    int4 i2 = read_imagei(indices, res.triangle_index+1);
-    int4 i3 = read_imagei(indices, res.triangle_index+2);
+    int4 i1 = read_imagei(indices, (int)res.triangle_index);
+    int4 i2 = read_imagei(indices, (int)res.triangle_index+1);
+    int4 i3 = read_imagei(indices, (int)res.triangle_index+2);
     mesh m = meshes[i1.w];
     material mat = material_buffer[m.material_index];
 
     vec3 normal =
-        read_imagef(normals, i1.y).xyz*(1-res.u-res.v)+
-        read_imagef(normals, i2.y).xyz*res.u+
-        read_imagef(normals, i3.y).xyz*res.v;
+        read_imagef(normals, (int)i1.y).xyz*(1-res.u-res.v)+
+        read_imagef(normals, (int)i2.y).xyz*res.u+
+        read_imagef(normals, (int)i3.y).xyz*res.v;
 
     normal = (normal+1) / 2;
 

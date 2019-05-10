@@ -27,9 +27,8 @@
 
 #ifdef WIN32
 #include <win32.c>
-#else
-#include <osx.m>
 #endif
+//NOTE: osx.m is compiled seperatly and then linked at the end.
 
 //#define _MEM_DEBUG //Enable verbose memory allocation, movement and freeing
 

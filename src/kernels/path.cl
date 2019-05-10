@@ -91,17 +91,17 @@ __kernel void segmented_path_trace_init(
     float rand2 = get_random(&seed1, &seed2);
 
 
-    int4 i1 = read_imagei(indices, res.triangle_index);
-    int4 i2 = read_imagei(indices, res.triangle_index+1);
-    int4 i3 = read_imagei(indices, res.triangle_index+2);
+    int4 i1 = read_imagei(indices, (int)res.triangle_index);
+    int4 i2 = read_imagei(indices, (int)res.triangle_index+1);
+    int4 i3 = read_imagei(indices, (int)res.triangle_index+2);
     mesh m = meshes[i1.w];
     material mat = material_buffer[m.material_index];
     vec3 pos = r.orig + r.dir*res.t;
 
     vec3 normal =
-        read_imagef(normals, i1.y).xyz*(1-res.u-res.v)+
-        read_imagef(normals, i2.y).xyz*res.u+
-        read_imagef(normals, i3.y).xyz*res.v;
+        read_imagef(normals, (int)i1.y).xyz*(1-res.u-res.v)+
+        read_imagef(normals, (int)i2.y).xyz*res.u+
+        read_imagef(normals, (int)i3.y).xyz*res.v;
 
     spd.mask *= mat.colour;
 
@@ -167,18 +167,18 @@ __kernel void segmented_path_trace(
 
 
     //RETRIEVE DATA
-    int4 i1 = read_imagei(indices, res.triangle_index);
-    int4 i2 = read_imagei(indices, res.triangle_index+1);
-    int4 i3 = read_imagei(indices, res.triangle_index+2);
+    int4 i1 = read_imagei(indices, (int)res.triangle_index);
+    int4 i2 = read_imagei(indices, (int)res.triangle_index+1);
+    int4 i3 = read_imagei(indices, (int)res.triangle_index+2);
     mesh m = meshes[i1.w];
     material mat = material_buffer[m.material_index];
     vec3 pos = r.orig + r.dir*res.t;
     //pos = (vec3) (0, 0, -2);
 
     vec3 normal =
-        read_imagef(normals, i1.y).xyz*(1-res.u-res.v)+
-        read_imagef(normals, i2.y).xyz*res.u+
-        read_imagef(normals, i3.y).xyz*res.v;
+        read_imagef(normals, (int)i1.y).xyz*(1-res.u-res.v)+
+        read_imagef(normals, (int)i2.y).xyz*res.u+
+        read_imagef(normals, (int)i3.y).xyz*res.v;
 
     //TODO: BETTER RANDOM PLEASE
 
@@ -251,8 +251,11 @@ __kernel void segmented_path_trace(
         //printf("PUSH\n");
         spd.bounce_num = 0;
         spd.sample_num++;
-        out_tex[offset] += (vec4) (clamp(spd.accum_color, 0.f, 1.f),1);
-
+#ifdef _WIN32
+        out_tex[offset] += (vec4)(spd.accum_color, 1);
+#else
+        out_tex[offset] += (vec4)(spd.accum_color.zyx, 1);
+#endif
         //START OF NEW
 
 
@@ -269,18 +272,18 @@ __kernel void segmented_path_trace(
             //return;
         }
 
-        i1 = read_imagei(indices, res.triangle_index);
-        i2 = read_imagei(indices, res.triangle_index+1);
-        i3 = read_imagei(indices, res.triangle_index+2);
+        i1 = read_imagei(indices, (int)res.triangle_index);
+        i2 = read_imagei(indices, (int)res.triangle_index+1);
+        i3 = read_imagei(indices, (int)res.triangle_index+2);
         m = meshes[i1.w];
         mat = material_buffer[m.material_index];
         pos = r.orig + r.dir*res.t;
         //pos = (vec3) (0, 0, -2);
 
         normal =
-            read_imagef(normals, i1.y).xyz*(1-res.u-res.v)+
-            read_imagef(normals, i2.y).xyz*res.u+
-            read_imagef(normals, i3.y).xyz*res.v;
+            read_imagef(normals, (int)i1.y).xyz*(1-res.u-res.v)+
+            read_imagef(normals, (int)i2.y).xyz*res.u+
+            read_imagef(normals, (int)i3.y).xyz*res.v;
 
         spd.mask *= mat.colour;
         if( (float)(mat.reflectivity==1.)) //TODO: just add an emmision value in material

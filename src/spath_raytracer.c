@@ -353,9 +353,11 @@ void spath_raytracer_trace(spath_raytracer_context* sprctx)
 void spath_raytracer_render(spath_raytracer_context* sprctx)
 {
     static int tbottle = 0;
+    int t1, t2, t3, t4, t5;
+    
     //Sleep(5000);
     if((sprctx->current_iteration+1)%50 == 0)
-        int t1 = os_get_time_mili(abst);
+        t1 = os_get_time_mili(abst);
 
     //spath_raytracer_update_random(sprctx);
     spath_raytracer_xor_rng(sprctx);
@@ -375,21 +377,21 @@ void spath_raytracer_render(spath_raytracer_context* sprctx)
     bad_buf_update(sprctx);
 
     if(sprctx->current_iteration%50 == 0)
-        int t2 = os_get_time_mili(abst);
+        t2 = os_get_time_mili(abst);
 
     spath_raytracer_kd_collision(sprctx);
     if(sprctx->current_iteration%50 == 0)
-        int t3 = os_get_time_mili(abst);
+        t3 = os_get_time_mili(abst);
 
     spath_raytracer_trace(sprctx);
     if(sprctx->current_iteration%50 == 0)
-        int t4 = os_get_time_mili(abst);
+        t4 = os_get_time_mili(abst);
 
     if(sprctx->current_iteration%50 == 0)
         spath_raytracer_avg_to_out(sprctx);
 
     if(sprctx->current_iteration%50 == 0)
-        int t5 = os_get_time_mili(abst);
+        t5 = os_get_time_mili(abst);
 
     if(sprctx->current_iteration%50 == 0)
         printf("num_gen: %d, collision: %d, trace: %d, draw: %d, time_since: %d, total: %d    %d.%d/%d    %d:%d:%d\n",

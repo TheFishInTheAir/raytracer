@@ -130,18 +130,11 @@ os_abs init_osx_abs()
     CGContextRef _backBuffer = CGBitmapContextCreate(ctx->bitmap_memory, ctx->width, ctx->height, 8,
                                                      bitmapBytesPerRow, colorSpace, kCGImageAlphaPremultipliedLast); //NOTE: nonpremultiplied alpha
 
-    //CGContextSetRGBFillColor(_backBuffer, 0.5, 0.5, 1, 0.1f);
-    //CGContextFillRect(_backBuffer, CGRectMake(0,40, 800,780));
 
     CGImageRef backImage = CGBitmapContextCreateImage(_backBuffer);
 
-    //double _color[] = {1.0f,0.0f,1.0f,1.0f};
-    //CGColorRef color = CGColorCreate(colorSpace, _color);
     CGColorSpaceRelease(colorSpace);
 
-    //CGContextSetFillColorWithColor(gctx, color);
-    //CGContextSetRGBFillColor(gctx, 1, 0.5, 1, 1);
-    //CGContextFillRect(gctx, CGRectMake(340,40, 480,480));
     CGContextDrawImage(gctx, myBoundingBox, backImage);
 
 
@@ -156,16 +149,12 @@ os_abs init_osx_abs()
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 {
-    //exit(0);
-    //printf("NUT\n");
     return NSTerminateNow;
 
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
 {
-    //[NSApp stop:nil];
-    //printf("NUT Butter\n");
     id menubar = [[NSMenu new] autorelease];
     id appMenuItem = [[NSMenuItem new] autorelease];
     [menubar addItem:appMenuItem];
@@ -189,38 +178,11 @@ os_abs init_osx_abs()
     [window makeKeyAndOrderFront:nil];
     [window cascadeTopLeftFromPoint:NSMakePoint(20,20)];
 
-    //NSSize size = NSMakeSize(ctx->width, ctx->height);
-
-    //NSImageView* imageView = [[NSImageView alloc] initWithFrame:frame];
-    /*NSBitmapImageRep* bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL
-                                                                       pixelsWide:800
-                                                                       pixelsHigh:800
-                                                                     bitsPerSample:8
-                                                                  samplesPerPixel:4
-                                                                         hasAlpha:YES
-                                                                         isPlanar:NO
-                                                                   colorSpaceName:NSDeviceRGBColorSpace
-                                                                     bitmapFormat:NSBitmapFormatAlphaNonpremultiplied
-                                                                      bytesPerRow:0
-                                                                      bitsPerPixel:0];*/
-
-
-
-    //ctx->bitmap_memory = [bitmap bitmapData];
-    //ctx->bitmap = bitmap;
-    //NSImage *myImage = [[NSImage alloc] initWithSize:size];
-    //[myImage addRepresentation:bitmap];
-    //myImage.cacheMode = NSImageCacheNever;
     CustomView* cv = [[CustomView alloc] initWithFrame:frame];
-    // [imageView setImage:myImage];
 
-    //NSTextView * textView = [[NSTextView alloc] initWithFrame:frame];
     [window setContentView:cv];
 
     initBitmapData(ctx->bitmap_memory, 0, ctx->width, ctx->height);
-    //[cv drawRect:NSMakeRect(0,0,800,800)];
-    //imageView.editable = NO;
-
 
 }
 @end
@@ -244,9 +206,7 @@ void osx_loop_start()
 {
     printf("Starting OSX Run loop.\n");
 
-    //printf("starting\n");
     [NSApp activateIgnoringOtherApps:YES];
-    //[NSApp.delegate start];
     [NSApp run];
 }
 
@@ -256,34 +216,22 @@ void osx_start_thread(void (*func)(void*), void* data)
     pthread_create(&thread, NULL, (void *(*)(void*))func, data);
 }
 float offset;
-void osx_enqueue_update() //TODO: implement, re-blit the bitmap
+void osx_enqueue_update()
 {
-    //return;
+
     dispatch_async(ctx->main_queue,
                    ^{
                        NSApp.windows[0].title =
                            [NSString stringWithFormat:@"Pathtracer %f", offset];
                        CustomView* view = (CustomView*) NSApp.windows[0].contentView;
-                       //NSImageView* test_img_view = (NSImageView*) test_view;
-
-                       //[test_img_view.image recache];
-
-                       // BULLSHIT START
-                       //[test_img_view.image lockFocus];
-                       //[test_img_view.image unlockFocus];
-                       // BULLSHIT END
-                       //[view lockFocus];
-                       //[view drawRect:NSMakeRect(0,0,800,800)];
-                       //[view unlockFocus];
-                       [view setNeedsDisplay:YES];
+                           [view setNeedsDisplay:YES];
 
                        [NSApp.windows[0] display]; //This should also call display on view
                    });
 }
 
-void _test_thing(void* data)
+void _test_thing(void* data) //TODO: CLEANUP
 {
-    //osx_sleep(500);
     offset = 40.0f;
     printf("test start\n");
     while(true)
@@ -303,19 +251,7 @@ int main ()
 {
     osx_start();
 
-    //[NSApplication sharedApplication];
-    //[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-    //NSApp.delegate = [AppDelegate alloc];
-
-
-    //NSWindowController * windowController = [[NSWindowController alloc] initWithWindow:window];
-    //[windowController autorelease];
-    //osx_start_thread(_test_thing, NULL);
     osx_loop_start();
-
-    //[NSApp activateIgnoringOtherApps:YES];
-    //[NSApp run];
-
 
     return 0;
 }

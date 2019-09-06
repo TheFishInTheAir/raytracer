@@ -157,8 +157,8 @@ void spath_raytracer_kd_collision(spath_raytracer_context* sprctx)
 
 
 
-    size_t global[1] = {sprctx->rctx->rcl->num_cores * 16};//sprctx->rctx->rcl->simt_size; sprctx->rctx->rcl->num_simt_per_multiprocessor};//ok I give up with the peristent threading.
-    size_t local[1]  = {sprctx->rctx->rcl->simt_size};//sprctx->rctx->rcl->simt_size; sprctx->rctx->rcl->num_simt_per_multiprocessor};// * sprctx->rctx->rcl->num_simt_per_multiprocessor};//sprctx->rctx->rcl->simt_size; sprctx->rctx->rcl->num_simt_per_multiprocessor
+    size_t global[1] = {sprctx->rctx->rcl->num_cores * 16};
+    size_t local[1]  = {sprctx->rctx->rcl->simt_size};
     err = clEnqueueNDRangeKernel(sprctx->rctx->rcl->commands, kernel, 1,
                                  NULL, global, local, 0, NULL, NULL);
     ASRT_CL("Failed to execute kd tree traversal kernel");

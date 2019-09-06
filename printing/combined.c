@@ -197,8 +197,8 @@ void ic_octree_insert(ic_context*, vec3 point, vec3 normal);
 struct scene;
 //struct AABB;
 //TODO: make these variable from the ui, eventually
-#define KDTREE_KT 1.0f //Cost for traversal
-#define KDTREE_KI 1.5f //Cost for intersection
+#define KDTREE_KT 2.0f //Cost for traversal
+#define KDTREE_KI 1.0f //Cost for intersection
 
 #define KDTREE_LEAF 1
 #define KDTREE_NODE 2
@@ -775,9 +775,8 @@ int win32_get_height();
 
 #ifdef WIN32
 #include <win32.c>
-#else
-#include <osx.m>
 #endif
+//NOTE: osx.m is compiled seperatly and then linked at the end.
 
 //#define _MEM_DEBUG //Enable verbose memory allocation, movement and freeing
 
@@ -1542,7 +1541,7 @@ typedef struct kd_tree_sah_results
     uint8_t side; //1 left, 2 right
 } kd_tree_sah_results;
 
-inline kd_tree_sah_results kd_tree_sah_results_c(float cost, uint8_t side)
+kd_tree_sah_results kd_tree_sah_results_c(float cost, uint8_t side)
 {
     kd_tree_sah_results r;
     r.cost = cost;
@@ -1562,7 +1561,7 @@ typedef struct kd_tree_find_plane_results
 } kd_tree_find_plane_results;
 
 
-inline bool kd_tree_event_lt(kd_tree_event* left, kd_tree_event* right)
+bool kd_tree_event_lt(kd_tree_event* left, kd_tree_event* right)
 {
     return
         (left->b <  right->b)                             ||
@@ -1968,7 +1967,7 @@ void kd_tree_construct(kd_tree* tree) //O(n log^2 n) implementation
     tree->root = kd_tree_construct_rec(tree, V, kd_tree_gen_initial_tri_buf(tree), 0);
 }
 
-inline unsigned int _kd_tree_write_buf(char* buffer, unsigned int offset,
+unsigned int _kd_tree_write_buf(char* buffer, unsigned int offset,
                                                    void* data, size_t size)
 {
     memcpy(buffer+offset, data, size);
@@ -2014,8 +2013,8 @@ unsigned int kd_tree_generate_serialized_buf_rec(kd_tree* tree, kd_tree_node* no
         //this goes after the left node
         unsigned int right_offset = kd_tree_generate_serialized_buf_rec(tree, node->right, left_offset);
 
-        n.left_ind  = offset;
-        n.right_ind = left_offset;
+        n.left_ind  = offset/8;
+        n.right_ind = left_offset/8;
 
         memcpy(tree->buffer+struct_start_offset, &n, sizeof(_skd_tree_traversal_node));
 
@@ -2039,12 +2038,31 @@ void kd_tree_generate_serialized(kd_tree* tree)
     mem_needed += tree->num_leaves * sizeof(_skd_tree_leaf_node); //leaf nodes
     mem_needed += (tree->num_indices_total+tree->num_tris_padded) * sizeof(unsigned int); //triangle indices
 
+    //char* name = malloc(256);
+    //sprintf(name, "%d.bkdt", mem_needed);
+
     tree->buffer_size = mem_needed;
     printf("k-d tree is %d bytes long...", mem_needed);
 
     tree->buffer = malloc(mem_needed);
+
+
+    /*FILE* f = fopen(name, "r");
+    if(f!=NULL)
+    {
+        printf("Using cached kd tree.\n");
+        fread(tree->buffer, 1, mem_needed, f);
+        fclose(f);
+    }
+    else*/
     kd_tree_generate_serialized_buf_rec(tree, tree->root, 0);
 
+        /*{
+        f = fopen(name, "w");
+        fwrite(tree->buffer, 1, mem_needed, f);
+        fclose(f);
+    }
+    free(name);*/
 }
 #include <loader.h>
 #include <parson.h>
@@ -2743,6 +2761,30 @@ void create_context(rcl_ctx* ctx)
             printf("INTEL INFO NOT SUPPORTED YET!\n");
             break;
         }
+        default: //APPLE is really bad and doesn't return the correct vendor id.
+        {        //Just going to use manually enter in data.
+                printf("WARNING: Unknown Device Manufacturer %u (%04X)\n", id, id);
+                unsigned int warp_size;
+                unsigned int compute_capability;
+                unsigned int num_sm;
+                unsigned int warps_per_sm = 6; //my laptop uses kepler
+                clGetDeviceInfo(ctx->device_id, CL_DEVICE_WARP_SIZE_NV, //warp size NOT WORKING ON OSX
+                                sizeof(unsigned int), &warp_size, NULL);
+                warp_size = 32;
+                clGetDeviceInfo(ctx->device_id, CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV, //compute capability
+                                sizeof(unsigned int), &compute_capability, NULL);
+                clGetDeviceInfo(ctx->device_id, CL_DEVICE_MAX_COMPUTE_UNITS, //number of stream multiprocessors
+                                sizeof(unsigned int), &num_sm, NULL);
+                
+                printf("ASSUMING NVIDIA.\nNVIDIA INFO: SM: %d,  WARP SIZE: %d, COMPUTE CAPABILITY: %d, WARPS PER SM: %d, TOTAL STREAM PROCESSORS: %d\n\n",
+                       num_sm, warp_size, compute_capability, warps_per_sm, warps_per_sm*warp_size*num_sm);
+                ctx->simt_size = warp_size;
+                ctx->num_simt_per_multiprocessor = warps_per_sm;
+                ctx->num_multiprocessors = num_sm;
+                ctx->num_cores = warps_per_sm*warp_size*num_sm;
+                
+                break;
+            }
         }
 
     }
@@ -2814,7 +2856,7 @@ rcl_img_buf gen_1d_image_buffer(raytracer_context* rctx, size_t t, void* ptr)
 
 
     ib.image = clCreateImage(rctx->rcl->context,
-                             CL_MEM_READ_WRITE,
+                             0,
                              &cl_standard_format,
                              &cl_standard_descriptor,
                              NULL,//ptr,
@@ -3966,9 +4008,8 @@ void spath_raytracer_kd_collision(spath_raytracer_context* sprctx)
 
 
 
-    size_t global[1] = {sprctx->rctx->rcl->num_cores*16};//ok I give up with the peristent threading.
-    size_t local[1]  = {sprctx->rctx->rcl->simt_size * sprctx->rctx->rcl->num_simt_per_multiprocessor};//sprctx->rctx->rcl->simt_size; sprctx->rctx->rcl->num_simt_per_multiprocessor
-
+    size_t global[1] = {sprctx->rctx->rcl->num_cores * 16};//sprctx->rctx->rcl->simt_size; sprctx->rctx->rcl->num_simt_per_multiprocessor};//ok I give up with the peristent threading.
+    size_t local[1]  = {sprctx->rctx->rcl->simt_size};//sprctx->rctx->rcl->simt_size; sprctx->rctx->rcl->num_simt_per_multiprocessor};// * sprctx->rctx->rcl->num_simt_per_multiprocessor};//sprctx->rctx->rcl->simt_size; sprctx->rctx->rcl->num_simt_per_multiprocessor
     err = clEnqueueNDRangeKernel(sprctx->rctx->rcl->commands, kernel, 1,
                                  NULL, global, local, 0, NULL, NULL);
     ASRT_CL("Failed to execute kd tree traversal kernel");
@@ -4163,8 +4204,11 @@ void spath_raytracer_trace(spath_raytracer_context* sprctx)
 void spath_raytracer_render(spath_raytracer_context* sprctx)
 {
     static int tbottle = 0;
+    int t1, t2, t3, t4, t5;
+    
     //Sleep(5000);
-    int t1 = os_get_time_mili(abst);
+    if((sprctx->current_iteration+1)%50 == 0)
+        t1 = os_get_time_mili(abst);
 
     //spath_raytracer_update_random(sprctx);
     spath_raytracer_xor_rng(sprctx);
@@ -4182,16 +4226,29 @@ void spath_raytracer_render(spath_raytracer_context* sprctx)
 
 
     bad_buf_update(sprctx);
-    int t2 = os_get_time_mili(abst);
-    spath_raytracer_kd_collision(sprctx);
-    int t3 = os_get_time_mili(abst);
-    spath_raytracer_trace(sprctx);
-    int t4 = os_get_time_mili(abst);
-    spath_raytracer_avg_to_out(sprctx);
-    int t5 = os_get_time_mili(abst);
 
-    printf("num_gen: %d, collision: %d, trace: %d, draw: %d, time_since: %d, total: %d\n",
-           t2-t1, t3-t2, t4-t3, t5-t4, t1-tbottle, t5-tbottle);
+    if(sprctx->current_iteration%50 == 0)
+        t2 = os_get_time_mili(abst);
+
+    spath_raytracer_kd_collision(sprctx);
+    if(sprctx->current_iteration%50 == 0)
+        t3 = os_get_time_mili(abst);
+
+    spath_raytracer_trace(sprctx);
+    if(sprctx->current_iteration%50 == 0)
+        t4 = os_get_time_mili(abst);
+
+    if(sprctx->current_iteration%50 == 0)
+        spath_raytracer_avg_to_out(sprctx);
+
+    if(sprctx->current_iteration%50 == 0)
+        t5 = os_get_time_mili(abst);
+
+    if(sprctx->current_iteration%50 == 0)
+        printf("num_gen: %d, collision: %d, trace: %d, draw: %d, time_since: %d, total: %d    %d.%d/%d    %d:%d:%d\n",
+               t2-t1, t3-t2, t4-t3, t5-t4, t1-tbottle, t5-tbottle,
+               sprctx->current_iteration/4, sprctx->current_iteration%4, sprctx->num_iterations/4,
+               ((t5-sprctx->start_time)/1000)/60, ((t5-sprctx->start_time)/1000)%60, (t5-sprctx->start_time)%1000);
     //spath_raytracer_kd_test(sprctx);
     tbottle = os_get_time_mili(abst);
 }
@@ -4200,7 +4257,7 @@ void spath_raytracer_prepass(spath_raytracer_context* sprctx)
 {
     printf("Starting Split Path Raytracer Prepass. \n");
     sprctx->render_complete = false;
-    sprctx->num_iterations = 256*4;//arbitrary default
+    sprctx->num_iterations = 2048*4;//arbitrary default
     srand((unsigned int)os_get_time_mili(abst));
     sprctx->start_time = (unsigned int) os_get_time_mili(abst);
     bad_buf_update(sprctx);
@@ -4417,10 +4474,10 @@ void run(void* unnused_rn)
 
 
 
-    scene* rscene = load_scene_json_url("scenes/path_obj3.rsc"); //TODO: support changing this during runtime
+    scene* rscene = load_scene_json_url("scenes/path_obj2.rsc"); //TODO: support changing this during runtime
 
     rctx->stat_scene = rscene;
-    rctx->num_samples = 128; //NOTE: never actually used
+    rctx->num_samples = 512; //NOTE: never actually used
 
     ss_raytracer_context* ssrctx = NULL;
     path_raytracer_context* prctx = NULL;
@@ -5176,6 +5233,328 @@ void win32_start_thread(void (*func)(void*), void* data)
     //    assert(false);
 
 }
+#import <Cocoa/Cocoa.h>
+#include <osx.h>
+#include <startup.h>
+#include <sys/types.h>
+
+#include <os_abs.h>
+#include <stdio.h>
+#include <time.h>
+#include <stdlib.h>
+#include <pthread.h>
+
+#if 1
+int main()
+{
+    startup();
+}
+#endif
+
+typedef struct
+{
+    unsigned char* bitmap_memory;
+
+    unsigned int width;
+    unsigned int height;
+
+    dispatch_queue_t main_queue;
+
+    NSBitmapImageRep* bitmap;
+} osx_ctx;
+//NOTE: probably not good
+static osx_ctx* ctx;
+
+
+void osx_sleep(int miliseconds)
+{
+    struct timespec ts;
+    ts.tv_sec = miliseconds/1000;
+    ts.tv_nsec = (miliseconds%1000)*1000000;
+    nanosleep(&ts, NULL);
+}
+
+void* osx_get_bitmap_memory()
+{
+    return ctx->bitmap_memory;
+}
+
+int osx_get_time_mili()
+{
+    int err = 0;
+    struct timespec ts;
+    if((err = clock_gettime(CLOCK_REALTIME, &ts)))
+    {
+        printf("ERROR: failed to retrieve time. (osx abstraction) %i", err);
+        exit(1);
+    }
+    return (ts.tv_sec*1000)+(ts.tv_nsec/1000000);
+}
+
+int osx_get_width()
+{
+    return ctx->width;
+}
+int osx_get_height()
+{
+    return ctx->height;
+}
+
+void initBitmapData(unsigned char* bmap, float offset, unsigned int width, unsigned int height)
+{
+    int pitch = width*4;
+    uint8_t* row = bmap;
+
+    for(int y = 0; y < height; y++)
+    {
+        uint8_t* pixel = (uint8_t*)row;
+        for(int x = 0; x < width; x++)
+        {
+            *pixel = sin(((float)x+offset)/150)*255;
+            ++pixel;
+
+            *pixel = cos(((float)x-offset)/10)*100;
+            ++pixel;
+
+            *pixel = cos(((float)y*(offset+1))/50)*255;
+            ++pixel;
+
+            *pixel = 255;
+            ++pixel;
+        }
+        row += pitch;
+    }
+}
+
+void doesnt_work_on_osx()
+{
+    //printf("I hope this works.\n");
+    initBitmapData(ctx->bitmap_memory, 0, ctx->width, ctx->height);
+}
+
+
+//Create OS Virtual Function Struct
+os_abs init_osx_abs()
+{
+    os_abs abstraction;
+    abstraction.start_func = &osx_start;
+    abstraction.loop_start_func = &osx_loop_start;
+    abstraction.update_func = &osx_enqueue_update;
+    abstraction.sleep_func = &osx_sleep;
+    abstraction.get_bitmap_memory_func = &osx_get_bitmap_memory;
+    abstraction.get_time_mili_func = &osx_get_time_mili;
+    abstraction.get_width_func = &osx_get_width;
+    abstraction.get_height_func = &osx_get_height;
+    abstraction.start_thread_func = &osx_start_thread;
+    abstraction.draw_weird = &doesnt_work_on_osx;
+    return abstraction;
+}
+
+
+@interface CustomView : NSView
+@end
+@implementation CustomView
+- (void)drawRect:(NSRect)dirtyRect {
+    CGContextRef gctx = [[NSGraphicsContext currentContext] CGContext];
+    CGRect myBoundingBox;
+    myBoundingBox = CGRectMake(0,0, ctx->width, ctx->height);
+    CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
+    int bitmapBytesPerRow = ctx->width*4;
+    static float thingy = 0;
+    //NOTE: not sure if _backBuffer should be stored?? probably not right.
+    CGContextRef _backBuffer = CGBitmapContextCreate(ctx->bitmap_memory, ctx->width, ctx->height, 8,
+                                                     bitmapBytesPerRow, colorSpace, kCGImageAlphaPremultipliedLast); //NOTE: nonpremultiplied alpha
+
+    //CGContextSetRGBFillColor(_backBuffer, 0.5, 0.5, 1, 0.1f);
+    //CGContextFillRect(_backBuffer, CGRectMake(0,40, 800,780));
+
+    CGImageRef backImage = CGBitmapContextCreateImage(_backBuffer);
+
+    //double _color[] = {1.0f,0.0f,1.0f,1.0f};
+    //CGColorRef color = CGColorCreate(colorSpace, _color);
+    CGColorSpaceRelease(colorSpace);
+
+    //CGContextSetFillColorWithColor(gctx, color);
+    //CGContextSetRGBFillColor(gctx, 1, 0.5, 1, 1);
+    //CGContextFillRect(gctx, CGRectMake(340,40, 480,480));
+    CGContextDrawImage(gctx, myBoundingBox, backImage);
+
+
+    CGContextRelease(_backBuffer);
+    CGImageRelease(backImage);
+}
+@end
+
+@interface AppDelegate : NSObject <NSApplicationDelegate>
+@end
+@implementation AppDelegate
+
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
+{
+    //exit(0);
+    //printf("NUT\n");
+    return NSTerminateNow;
+
+}
+
+- (void)applicationDidFinishLaunching:(NSNotification *)notification
+{
+    //[NSApp stop:nil];
+    //printf("NUT Butter\n");
+    id menubar = [[NSMenu new] autorelease];
+    id appMenuItem = [[NSMenuItem new] autorelease];
+    [menubar addItem:appMenuItem];
+    [NSApp setMainMenu:menubar];
+    id appMenu = [[NSMenu new] autorelease];
+    id appName = [[NSProcessInfo processInfo] processName];
+    id quitTitle = [@"Quit " stringByAppendingString:appName];
+    id quitMenuItem = [[[NSMenuItem alloc] initWithTitle:quitTitle
+                                                  action:@selector(terminate:) keyEquivalent:@"q"] autorelease];
+    [appMenu addItem:quitMenuItem];
+    [appMenuItem setSubmenu:appMenu];
+    NSRect frame = NSMakeRect(0, 0, ctx->width, ctx->height);
+    NSUInteger windowStyle = NSWindowStyleMaskTitled;//NSWindowStyleMaskBorderless;
+    NSWindow* window  = [[[NSWindow alloc]
+                             initWithContentRect:frame
+                                       styleMask:windowStyle
+                                         backing:NSBackingStoreBuffered
+                                           defer:NO] autorelease];
+
+    [window setBackgroundColor:[NSColor grayColor]];
+    [window makeKeyAndOrderFront:nil];
+    [window cascadeTopLeftFromPoint:NSMakePoint(20,20)];
+
+    //NSSize size = NSMakeSize(ctx->width, ctx->height);
+
+    //NSImageView* imageView = [[NSImageView alloc] initWithFrame:frame];
+    /*NSBitmapImageRep* bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL
+                                                                       pixelsWide:800
+                                                                       pixelsHigh:800
+                                                                     bitsPerSample:8
+                                                                  samplesPerPixel:4
+                                                                         hasAlpha:YES
+                                                                         isPlanar:NO
+                                                                   colorSpaceName:NSDeviceRGBColorSpace
+                                                                     bitmapFormat:NSBitmapFormatAlphaNonpremultiplied
+                                                                      bytesPerRow:0
+                                                                      bitsPerPixel:0];*/
+
+
+
+    //ctx->bitmap_memory = [bitmap bitmapData];
+    //ctx->bitmap = bitmap;
+    //NSImage *myImage = [[NSImage alloc] initWithSize:size];
+    //[myImage addRepresentation:bitmap];
+    //myImage.cacheMode = NSImageCacheNever;
+    CustomView* cv = [[CustomView alloc] initWithFrame:frame];
+    // [imageView setImage:myImage];
+
+    //NSTextView * textView = [[NSTextView alloc] initWithFrame:frame];
+    [window setContentView:cv];
+
+    initBitmapData(ctx->bitmap_memory, 0, ctx->width, ctx->height);
+    //[cv drawRect:NSMakeRect(0,0,800,800)];
+    //imageView.editable = NO;
+
+
+}
+@end
+
+void osx_start()
+{
+    printf("Initialising OSX context.\n");
+    ctx = (osx_ctx*) malloc(sizeof(osx_ctx));
+
+    ctx->width  = 800;
+    ctx->height = 800;
+    ctx->main_queue = dispatch_get_main_queue();
+    ctx->bitmap_memory = malloc(ctx->width*ctx->height*sizeof(int));
+
+    [NSApplication sharedApplication];
+    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    NSApp.delegate = [AppDelegate alloc];
+}
+
+void osx_loop_start()
+{
+    printf("Starting OSX Run loop.\n");
+
+    //printf("starting\n");
+    [NSApp activateIgnoringOtherApps:YES];
+    //[NSApp.delegate start];
+    [NSApp run];
+}
+
+void osx_start_thread(void (*func)(void*), void* data)
+{
+    pthread_t thread;
+    pthread_create(&thread, NULL, (void *(*)(void*))func, data);
+}
+float offset;
+void osx_enqueue_update() //TODO: implement, re-blit the bitmap
+{
+    //return;
+    dispatch_async(ctx->main_queue,
+                   ^{
+                       NSApp.windows[0].title =
+                           [NSString stringWithFormat:@"Pathtracer %f", offset];
+                       CustomView* view = (CustomView*) NSApp.windows[0].contentView;
+                       //NSImageView* test_img_view = (NSImageView*) test_view;
+
+                       //[test_img_view.image recache];
+
+                       // BULLSHIT START
+                       //[test_img_view.image lockFocus];
+                       //[test_img_view.image unlockFocus];
+                       // BULLSHIT END
+                       //[view lockFocus];
+                       //[view drawRect:NSMakeRect(0,0,800,800)];
+                       //[view unlockFocus];
+                       [view setNeedsDisplay:YES];
+
+                       [NSApp.windows[0] display]; //This should also call display on view
+                   });
+}
+
+void _test_thing(void* data)
+{
+    //osx_sleep(500);
+    offset = 40.0f;
+    printf("test start\n");
+    while(true)
+    {
+        osx_sleep(1);
+        initBitmapData(ctx->bitmap_memory, offset, ctx->width, ctx->height);
+        osx_enqueue_update();
+        offset += 10.0f;
+        if(offset>300)
+            offset = 0;
+        printf("test loop\n");
+    }
+}
+
+#if 0
+int main ()
+{
+    osx_start();
+
+    //[NSApplication sharedApplication];
+    //[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    //NSApp.delegate = [AppDelegate alloc];
+
+
+    //NSWindowController * windowController = [[NSWindowController alloc] initWithWindow:window];
+    //[windowController autorelease];
+    //osx_start_thread(_test_thing, NULL);
+    osx_loop_start();
+
+    //[NSApp activateIgnoringOtherApps:YES];
+    //[NSApp run];
+
+
+    return 0;
+}
+#endif
 /*********/
 /* Types */
 /*********/
@@ -5917,7 +6296,7 @@ typedef struct kd_stack_elem
 typedef __global uint4* kd_44_matrix;
 
 
-void kd_update_state(__global char* kd_tree, ulong indx, uchar* type,
+void kd_update_state(__global long* kd_tree, ulong indx, uchar* type,
                      kd_tree_node* node, kd_tree_leaf* leaf)
 {
 
@@ -5930,7 +6309,7 @@ void kd_update_state(__global char* kd_tree, ulong indx, uchar* type,
         leaf->type = template.type;
         leaf->num_triangles = template.num_triangles;
 
-        leaf->triangle_start = indx + sizeof(kd_tree_leaf_template);
+        leaf->triangle_start = indx + sizeof(kd_tree_leaf_template)/8;
     }
     else
         *node = *((__global kd_tree_node*) (kd_tree + indx));
@@ -5964,11 +6343,11 @@ inline float get_elem(vec3 v, uchar k, kd_44_matrix mask)
     return nv.x + nv.y + nv.z;
 }
 
-//#define B 3*32 //batch size
+#define BLOCKSIZE_Y 1
 #define STACK_SIZE 16 //tune later
-#define LOAD_BALANCER_BATCH_SIZE        32
+#define LOAD_BALANCER_BATCH_SIZE        32*3
 
-
+//#define BLOCKSIZE_Y 1 //NOTE: TEST
 __kernel void kdtree_intersection(
     __global kd_tree_collision_result* out_buf,
     __global ray* ray_buffer, //TODO: make vec4
@@ -5979,7 +6358,7 @@ __kernel void kdtree_intersection(
     __global mesh* meshes,
     image1d_buffer_t     indices,
     image1d_buffer_t     vertices,
-    __global char* kd_tree,   //TODO: use a higher allignment type
+    __global long* kd_tree,   //TODO: use a higher allignment type
 
     unsigned int num_rays)
 {
@@ -5987,6 +6366,7 @@ __kernel void kdtree_intersection(
     const uint blocksize_x = BLOCKSIZE_X; //should be 32 //NOTE: REMOVED A THING
     const uint blocksize_y = BLOCKSIZE_Y;
 
+    //NOTE: not technically correct, but kinda is
     uint x = get_local_id(0) % BLOCKSIZE_X; //id within the warp
     uint y = get_local_id(0) / BLOCKSIZE_X; //id of the warp in the SM
 
@@ -5994,7 +6374,8 @@ __kernel void kdtree_intersection(
     __local volatile int ray_count_array[BLOCKSIZE_Y];
     next_ray_array[y]  = 0;
     ray_count_array[y] = 0;
-
+    //printf("%llu", get_global_id(0));
+    //printf("%llu %llu %llu    ", get_local_size(0), get_num_groups(0), get_global_size(0));
     kd_stack_elem stack[STACK_SIZE];
     uint stack_length = 0;
 
@@ -6021,31 +6402,34 @@ __kernel void kdtree_intersection(
     {
         uint tidx = x; // SINGLE WARPS WORTH OF WORK 0-32
         uint widx = y; // WARPS PER SM 0-4 (for example)
-        __local volatile int* local_pool_ray_count = ray_count_array+widx;
+        __local volatile int* local_pool_ray_count = ray_count_array+widx; //get warp ids pool
         __local volatile int* local_pool_next_ray  = next_ray_array+widx;
 
         //Grab new rays
-        if(tidx == 0 && *local_pool_ray_count <= 0) //only the first work item gets memory
+        if(tidx == 0 && *local_pool_ray_count <= 0) //only the first work (of the pool) item gets memory
         {
             *local_pool_next_ray = atomic_add(warp_counter, LOAD_BALANCER_BATCH_SIZE); //batch complete
 
 
             *local_pool_ray_count = LOAD_BALANCER_BATCH_SIZE;
         }
-//lol help there are no barriers
+        barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
 
+//lol help there are no barriers
         {
 
             ray_indx = *local_pool_next_ray + tidx;
+            barrier(CLK_LOCAL_MEM_FENCE);
 
             if(ray_indx >= num_rays) //ray index is past num rays, work is done
                 break;
 
-            if(tidx == 0)
+            if(tidx == 0) //NOTE: this doesn't guarentee
             {
-                *local_pool_next_ray += 32;
-                *local_pool_ray_count -= 32;
+                *local_pool_next_ray  += BLOCKSIZE_X;
+                *local_pool_ray_count -= BLOCKSIZE_X;
             }
+            barrier(CLK_LOCAL_MEM_FENCE);
 
             r = ray_buffer[ray_indx];
 
@@ -6054,7 +6438,6 @@ __kernel void kdtree_intersection(
             if(!getTBoundingBox((vec3) SCENE_MIN, (vec3) SCENE_MAX, r, &scene_t_min, &scene_t_max)) //SCENE_MIN is a macro
             {
                 scene_t_max = -INFINITY;
-
             }
 
 
@@ -6064,7 +6447,7 @@ __kernel void kdtree_intersection(
             root = *((__global kd_tree_node*) kd_tree);
         }
         stack_length = 0;
-
+        //barrier(CLK_LOCAL_MEM_FENCE);
         while(t_max < scene_t_max)
         {
 
@@ -6104,6 +6487,19 @@ __kernel void kdtree_intersection(
                 ulong second = select(node.left_index, node.right_index,
                                       thing);
 
+
+                kd_update_state(kd_tree,
+                                ( t_split > t_max || t_split <= 0)||!(t_split < t_min) ? first : second,
+                                &current_type, &node, &leaf);
+
+                if( !(t_split > t_max || t_split <= 0) && !(t_split < t_min))
+                {
+                    stack[stack_length++] = (kd_stack_elem) {second, t_split, t_max}; //push
+                    t_max = t_split;
+                    pushdown = false;
+                }
+
+                /*
                 if( t_split > t_max || t_split <= 0)  //NOTE: branching necessary
                 {
                     kd_update_state(kd_tree, first, &current_type, &node, &leaf);
@@ -6121,30 +6517,27 @@ __kernel void kdtree_intersection(
 
                     t_max = t_split;
                     pushdown = false;
-                }
+                    }*/
 
-                if(pushdown)
-                {
-                    root = node;//UPDATE
-                }
+                root = pushdown ? node : root;
 
             }
-
+            //barrier(0);
             //Found leaf
             for(ulong t = 0; t <leaf.num_triangles; t++)
             {
                 //assert(leaf.triangle_start-t == 0);
                 vec3 tri[4];
                 unsigned int index_offset =
-                    *(__global uint*)(kd_tree+leaf.triangle_start+(t*sizeof(unsigned int)));
+                    *((__global uint*)(kd_tree+leaf.triangle_start)+t);
                 //get vertex (first element of each index)
-                int4 idx_0 = read_imagei(indices, index_offset+0);
-                int4 idx_1 = read_imagei(indices, index_offset+1);
-                int4 idx_2 = read_imagei(indices, index_offset+2);
+                const int4 idx_0 = read_imagei(indices, (int)index_offset+0);
+                const int4 idx_1 = read_imagei(indices, (int)index_offset+1);
+                const int4 idx_2 = read_imagei(indices, (int)index_offset+2);
 
-                tri[0] = read_imagef(vertices, idx_0.x).xyz;
-                tri[1] = read_imagef(vertices, idx_1.x).xyz;
-                tri[2] = read_imagef(vertices, idx_2.x).xyz;
+                tri[0] = read_imagef(vertices, (int)idx_0.x).xyz;
+                tri[1] = read_imagef(vertices, (int)idx_1.x).xyz;
+                tri[2] = read_imagef(vertices, (int)idx_2.x).xyz;
                 /*printf("%f %f %f : %f %f %f : %f %f %f %llu\n",
                        tri[0].x, tri[0].y, tri[0].z,
                        tri[1].x, tri[1].y, tri[1].z,
@@ -6162,19 +6555,21 @@ __kernel void kdtree_intersection(
                         t_hit = hit_coords.x;     //t
                         hit_info = hit_coords.yz; //u v
                         tri_indx = index_offset;
+
+                        if(t_hit < t_min) // goes by closest to furthest, so if it hits it will be the closest
+                        {//early exit
+                            //remove that
+
+                            //scene_t_min = -INFINITY;
+                            //scene_t_max = -INFINITY;
+                            //break;
+                        }
+
                     }
 
-                    if(t_hit < t_min) // goes by closest to furthest, so if it hits it will be the closest
-                    {//early exit
-                        //remove that
-
-                        scene_t_min = -INFINITY;
-                        //break; //TODO: do something NOTE: COULD BE EVEN FASTER WHEN I ACTUALLY FIX THIS
-                    }
                 }
 
             }
-
 
         }
         //By this point a triangle will have been found.
@@ -6240,16 +6635,16 @@ __kernel void kdtree_test_draw(
         out_tex[offset] = get_colour( (vec4) (0) );
         return;
     }
-    int4 i1 = read_imagei(indices, res.triangle_index);
-    int4 i2 = read_imagei(indices, res.triangle_index+1);
-    int4 i3 = read_imagei(indices, res.triangle_index+2);
+    int4 i1 = read_imagei(indices, (int)res.triangle_index);
+    int4 i2 = read_imagei(indices, (int)res.triangle_index+1);
+    int4 i3 = read_imagei(indices, (int)res.triangle_index+2);
     mesh m = meshes[i1.w];
     material mat = material_buffer[m.material_index];
 
     vec3 normal =
-        read_imagef(normals, i1.y).xyz*(1-res.u-res.v)+
-        read_imagef(normals, i2.y).xyz*res.u+
-        read_imagef(normals, i3.y).xyz*res.v;
+        read_imagef(normals, (int)i1.y).xyz*(1-res.u-res.v)+
+        read_imagef(normals, (int)i2.y).xyz*res.u+
+        read_imagef(normals, (int)i3.y).xyz*res.v;
 
     normal = (normal+1) / 2;
 
@@ -6270,7 +6665,7 @@ vec3 uniformSampleHemisphere(const float r1, const float r2)
 vec3 cosineSampleHemisphere(float u1, float u2, vec3 normal)
 {
     const float r = sqrt(u1);
-    const float theta = 2 * M_PI_F * u2;
+    const float theta = 2.f * M_PI_F * u2;
 
     vec3 w = normal;
     vec3 axis = fabs(w.x) > 0.1f ? (vec3)(0.0f, 1.0f, 0.0f) : (vec3)(1.0f, 0.0f, 0.0f);
@@ -6348,17 +6743,17 @@ __kernel void segmented_path_trace_init(
     float rand2 = get_random(&seed1, &seed2);
 
 
-    int4 i1 = read_imagei(indices, res.triangle_index);
-    int4 i2 = read_imagei(indices, res.triangle_index+1);
-    int4 i3 = read_imagei(indices, res.triangle_index+2);
+    int4 i1 = read_imagei(indices, (int)res.triangle_index);
+    int4 i2 = read_imagei(indices, (int)res.triangle_index+1);
+    int4 i3 = read_imagei(indices, (int)res.triangle_index+2);
     mesh m = meshes[i1.w];
     material mat = material_buffer[m.material_index];
     vec3 pos = r.orig + r.dir*res.t;
 
     vec3 normal =
-        read_imagef(normals, i1.y).xyz*(1-res.u-res.v)+
-        read_imagef(normals, i2.y).xyz*res.u+
-        read_imagef(normals, i3.y).xyz*res.v;
+        read_imagef(normals, (int)i1.y).xyz*(1-res.u-res.v)+
+        read_imagef(normals, (int)i2.y).xyz*res.u+
+        read_imagef(normals, (int)i3.y).xyz*res.v;
 
     spd.mask *= mat.colour;
 
@@ -6402,7 +6797,7 @@ __kernel void segmented_path_trace(
 
     spath_progress spd = spath_data[offset];
 
-    if(spd.sample_num==256) //get this from the cpu
+    if(spd.sample_num==2048) //get this from the cpu
     {
         ray nr;
         nr.orig = (vec3)(0);
@@ -6424,18 +6819,18 @@ __kernel void segmented_path_trace(
 
 
     //RETRIEVE DATA
-    int4 i1 = read_imagei(indices, res.triangle_index);
-    int4 i2 = read_imagei(indices, res.triangle_index+1);
-    int4 i3 = read_imagei(indices, res.triangle_index+2);
+    int4 i1 = read_imagei(indices, (int)res.triangle_index);
+    int4 i2 = read_imagei(indices, (int)res.triangle_index+1);
+    int4 i3 = read_imagei(indices, (int)res.triangle_index+2);
     mesh m = meshes[i1.w];
     material mat = material_buffer[m.material_index];
     vec3 pos = r.orig + r.dir*res.t;
     //pos = (vec3) (0, 0, -2);
 
     vec3 normal =
-        read_imagef(normals, i1.y).xyz*(1-res.u-res.v)+
-        read_imagef(normals, i2.y).xyz*res.u+
-        read_imagef(normals, i3.y).xyz*res.v;
+        read_imagef(normals, (int)i1.y).xyz*(1-res.u-res.v)+
+        read_imagef(normals, (int)i2.y).xyz*res.u+
+        read_imagef(normals, (int)i3.y).xyz*res.v;
 
     //TODO: BETTER RANDOM PLEASE
 
@@ -6465,13 +6860,11 @@ __kernel void segmented_path_trace(
     for(int i = 0; i < 7; i++)
         get_random(&seed1, &seed2);
 
-    barrier(0);
-
      //MESSY CODE!
     float rand1 = get_random(&seed1, &seed2);
-    float rand2 = get_random(&seed1, &seed2);
+    float rand2 = get_random(&seed2, &seed1);
 
-    //out_tex[offset] += (vec4)((vec3)(rand2*2) ,1);
+    //out_tex[offset] += (vec4)((vec3)(clamp((rand2*8)-2.f, 0.f, 1.f)), 1.f);
     //return;
 
     ray sr;
@@ -6489,11 +6882,13 @@ __kernel void segmented_path_trace(
         //printf("SHIT PANT\n");
         spd.bounce_num = NUM_BOUNCES; //TODO: uncomment
         spd.accum_color += spd.mask * sky.xyz;
+        //sr.orig = (vec3)(0);
+        //sr.dir = (vec3)(0);
     }
     else
     {
         //NOTE: janky emission, if reflectivity is 1 emission is 2 (only for tests)
-        spd.accum_color += spd.mask * (float)(mat.reflectivity==1.)*2; //NOTE: JUST ADD EMMISION
+        spd.accum_color += spd.mask * (float)(mat.reflectivity==1.f)*2.f; //NOTE: JUST ADD EMMISION
 
         spd.mask *= mat.colour;
 
@@ -6508,8 +6903,11 @@ __kernel void segmented_path_trace(
         //printf("PUSH\n");
         spd.bounce_num = 0;
         spd.sample_num++;
-        out_tex[offset] += (vec4) (clamp(spd.accum_color, 0.f, 1.f),1);
-
+#ifdef _WIN32
+        out_tex[offset] += (vec4)(spd.accum_color, 1);
+#else
+        out_tex[offset] += (vec4)(spd.accum_color.zyx, 1);
+#endif
         //START OF NEW
 
 
@@ -6526,18 +6924,18 @@ __kernel void segmented_path_trace(
             //return;
         }
 
-        i1 = read_imagei(indices, res.triangle_index);
-        i2 = read_imagei(indices, res.triangle_index+1);
-        i3 = read_imagei(indices, res.triangle_index+2);
+        i1 = read_imagei(indices, (int)res.triangle_index);
+        i2 = read_imagei(indices, (int)res.triangle_index+1);
+        i3 = read_imagei(indices, (int)res.triangle_index+2);
         m = meshes[i1.w];
         mat = material_buffer[m.material_index];
         pos = r.orig + r.dir*res.t;
         //pos = (vec3) (0, 0, -2);
 
         normal =
-            read_imagef(normals, i1.y).xyz*(1-res.u-res.v)+
-            read_imagef(normals, i2.y).xyz*res.u+
-            read_imagef(normals, i3.y).xyz*res.v;
+            read_imagef(normals, (int)i1.y).xyz*(1-res.u-res.v)+
+            read_imagef(normals, (int)i2.y).xyz*res.u+
+            read_imagef(normals, (int)i3.y).xyz*res.v;
 
         spd.mask *= mat.colour;
         if( (float)(mat.reflectivity==1.)) //TODO: just add an emmision value in material
@@ -7051,7 +7449,61 @@ __kernel void blit_float3_to_output(
     int offset = x+y*width;
     out_tex[offset] = get_colour(read_imagef(in_flts, sampler, (float2)(x, y)));
 }
-<!DOCTYPE html>
+h {
+  	color: black;
+  	font-family: office_code_pro_li;
+  	font-size: 72pt;
+  	/*text-align: center;*/
+}
+.titleBody {
+	text-align: center;
+}
+h2{
+	color: black;
+  	font-family: office_code_pro_li;
+  	font-size: 30pt;
+}
+
+input[type=text] {
+  	background-color: #fff;
+  	border: 2px solid #000;
+  	color: black;
+  	font-family: office_code_pro_li;
+  	font-size: 10pt;
+  	margin: 4px 2px;
+  	padding: 12px 20px;
+
+  	cursor: pointer;
+  	width: 40%;
+}
+
+p{
+	color: black;
+  	font-family: office_code_pro_li;
+}
+
+button {
+  background-color: #fff; /* Green */
+  border: 2px solid #000;
+  color: black;
+  padding: 15px 32px;
+  font-family: office_code_pro_li;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+}
+
+hr.titleBar {
+	margin-block-start: 0;
+}
+
+@font-face {
+  font-family: office_code_pro_li;
+  src: url(./ocp_li.woff);
+}<!DOCTYPE html>
 <html>
   <head>
   	<link rel="stylesheet" href="./style.css">	
@@ -7182,560 +7634,3 @@ __kernel void blit_float3_to_output(
 
   </body>
 </html>
-h {
-  	color: black;
-  	font-family: office_code_pro_li;
-  	font-size: 72pt;
-  	/*text-align: center;*/
-}
-.titleBody {
-	text-align: center;
-}
-h2{
-	color: black;
-  	font-family: office_code_pro_li;
-  	font-size: 30pt;
-}
-
-input[type=text] {
-  	background-color: #fff;
-  	border: 2px solid #000;
-  	color: black;
-  	font-family: office_code_pro_li;
-  	font-size: 10pt;
-  	margin: 4px 2px;
-  	padding: 12px 20px;
-
-  	cursor: pointer;
-  	width: 40%;
-}
-
-p{
-	color: black;
-  	font-family: office_code_pro_li;
-}
-
-button {
-  background-color: #fff; /* Green */
-  border: 2px solid #000;
-  color: black;
-  padding: 15px 32px;
-  font-family: office_code_pro_li;
-  text-align: center;
-  text-decoration: none;
-  display: inline-block;
-  font-size: 16px;
-  margin: 4px 2px;
-  cursor: pointer;
-}
-
-hr.titleBar {
-	margin-block-start: 0;
-}
-
-@font-face {
-  font-family: office_code_pro_li;
-  src: url(./ocp_li.woff);
-}#include <KdTreeComponent.h>
-#include <ge/entity/component/batches/PipelineComponentBatch.h>
-#include <ge/entity/component/ComponentManager.h>
-#include <ge/graphics/GraphicsCore.h>
-#include <ge/console/Log.h>
-#include <ge/entity/Entity.h>
-#include <ge/entity/EntityManager.h>
-#include <ge/entity/component/components/TransformComponent.h>
-#include <ge/entity/component/components/HLMeshComponent.h>
-#include <ge/engine/scene/Scene.h>
-#include <ge/debug/DebugBox.h>
-#include <ge/input/KeyboardHandler.h>
-#include <web_stuff.h>
-#include <GL/glew.h>
-
-ge::Component* _constructor_KdTreeComponent(ge::Entity* ent)
-{
-    return new KdTreeComponent(ent);
-}
-
-ge::ComponentConstructorRegistry::StartupHook KdTreeComponent::_hook("KdTreeComponent", _constructor_KdTreeComponent);
-
-
-KdTreeComponent::KdTreeComponent(ge::Entity* e) : ge::Component(e)
-{
-    addPublicVar("Maximum Depth",  {ge::DataType::INT, &kd_max_depth});
-    addPublicVar("Maximum Traversal Depth",  {ge::DataType::INT, &kd_traversal_max_depth});
-    addPublicVar("Traverse",  {ge::DataType::BOOL, &kd_traverse});
-
-    kd_max_depth = 5;
-    kd_traversal_max_depth = 1;
-    kd_traverse = false;
-}
-
-void KdTreeComponent::defaultInit()
-{
-    //TODO: probably should remove this.
-}
-
-void KdTreeComponent::insertToDefaultBatch() //TODO: add ingroup priorities
-{
-
-    if(!ge::ComponentManager::containsComponentBatch("PipelineComponentBatch", getTypeName()))
-    {
-        ge::PipelineComponentBatch* cmp = new ge::PipelineComponentBatch();
-        cmp->setComponentType(getTypeName());
-
-        ge::ComponentManager::registerComponentBatch(cmp);
-    }
-
-    ge::ComponentManager::getComponentBatch("PipelineComponentBatch", getTypeName())->softInsert(this);
-}
-
-void GenerateBox(glm::vec3 min, glm::vec3 max) //NOTE: not optomized
-{
-    ge::Entity* ent = new ge::Entity();
-    ent->name = "_tree_node";
-    ge::EntityManager::registerEntity(ent);
-
-    ge::TransformComponent* transform = new ge::TransformComponent(ent);
-    transform->insertToDefaultBatch();
-    transform->dynamic = true; //whatever tbh
-    transform->setPosition((min + max)/2);
-    transform->setScale(max-min);
-    ent->insertComponent(transform);
-
-    ge::HLMeshComponent* renderer = new ge::HLMeshComponent(ent);
-    renderer->insertToDefaultBatch();
-    renderer->setMeshData("demo/meshes/cube.obj");
-    renderer->setMaterial("CubeWire");
-    renderer->mesh->getMesh()->cullBackface = false;
-    ent->insertComponent(renderer);
-}
-
-void GenerateBoxMAIN(glm::vec3 min, glm::vec3 max) //NOTE: not optomized
-{
-    ge::Entity* ent = new ge::Entity();
-    ent->name = "_tree_node";
-    ge::EntityManager::registerEntity(ent);
-
-    ge::TransformComponent* transform = new ge::TransformComponent(ent);
-    transform->insertToDefaultBatch();
-    transform->dynamic = true; //whatever tbh
-    transform->setPosition((min + max)/2);
-    transform->setScale(max-min);
-    ent->insertComponent(transform);
-
-    ge::HLMeshComponent* renderer = new ge::HLMeshComponent(ent);
-    renderer->insertToDefaultBatch();
-    renderer->setMeshData("demo/meshes/cube.obj");
-    renderer->setMaterial("CubeWireRed");
-    renderer->mesh->getMesh()->cullBackface = false;
-    ent->insertComponent(renderer);
-}
-
-void GenerateBoxTRAV(glm::vec3 min, glm::vec3 max) //NOTE: not optomized
-{
-    ge::Entity* ent = new ge::Entity();
-    ent->name = "_tree_node";
-    ge::EntityManager::registerEntity(ent);
-
-    ge::TransformComponent* transform = new ge::TransformComponent(ent);
-    transform->insertToDefaultBatch();
-    transform->dynamic = true; //whatever tbh
-    transform->setPosition((min + max)/2);
-    transform->setScale(max-min);
-    ent->insertComponent(transform);
-
-    ge::HLMeshComponent* renderer = new ge::HLMeshComponent(ent);
-    renderer->insertToDefaultBatch();
-    renderer->setMeshData("demo/meshes/cube.obj");
-    renderer->setMaterial("OnyxTile");
-    renderer->mesh->getMesh()->cullBackface = true;
-    ent->insertComponent(renderer);
-}
-
-typedef struct skd_tree_traversal_node
-{
-    uint8_t type;
-    uint8_t k;
-    float   b;
-
-    size_t left_ind;   //NOTE: always going to be aligned by at least 4 (could multiply by four on gpu)
-    size_t right_ind;  //NOTE: I GIVE UP WITH LONGS JUST USE SIZE_T!
-} skd_tree_traversal_node;
-
-
-//serializable kd leaf node
-typedef struct  skd_tree_leaf_node
-{
-    uint8_t type;
-    unsigned int num_triangles;
-    //uint tri 1
-    //uint tri 2
-    //uint etc...
-} skd_tree_leaf_node;
-
-void KdTreeComponent::traversekd_and_gen(unsigned char* kd_start, unsigned char* kd, unsigned int depth,
-                        glm::vec3 min, glm::vec3 max)
-{
-    if(depth>kd_max_depth)
-        return;
-    if(kd[0] == 2) //node
-    {
-        skd_tree_traversal_node n = *((skd_tree_traversal_node*)kd);
-
-        glm::vec3 l_max, r_min;
-
-        r_min = min;
-        l_max = max;
-
-
-        r_min[n.k] = n.b;
-        l_max[n.k] = n.b;
-
-        printf("test: %d %f\n", (int)n.k, n.b);
-
-        if(n.b > max[n.k])
-            printf("BAD THING OVER MAX: %f\n", n.b);
-        if(n.b < min[n.k])
-            printf("BAD THING UNDER MIN: %f\n", n.b);
-        GenerateBox(min, l_max);
-        GenerateBox(r_min, max);
-
-        traversekd_and_gen(kd_start, kd_start+n.left_ind,  depth+1, min, l_max);
-        traversekd_and_gen(kd_start, kd_start+n.right_ind, depth+1, r_min, max);
-    }
-    else //leaf
-    {
-        return;
-    }
-}
-
-#define INFINITY 100000000
-#define KDTREE_LEAF 1
-#define STACK_SIZE 32
-#define KDTREE_NODE 2
-
-bool getTBoundingBox(glm::vec3 origin, glm::vec3 dir,
-                     glm::vec3 min, glm::vec3 max,
-                     float* tmin, float* tmax) {
-    glm::vec3 invD = glm::vec3(1/dir.x, 1/dir.y, 1/dir.z);
-	glm::vec3 t0s = (min - origin) * invD;
-  	glm::vec3 t1s = (max - origin) * invD;
-
-  	glm::vec3 tsmaller = glm::min(t0s, t1s);
-    glm::vec3 tbigger  = glm::max(t0s, t1s);
-
-    *tmin = glm::max(*tmin, glm::max(tsmaller[0], glm::max(tsmaller[1], tsmaller[2])));
-    *tmax = glm::min(*tmax, glm::min(tbigger[0],  glm::min(tbigger[1], tbigger[2])));
-
-	return (*tmin < *tmax);
-}
-
-bool getTBoundingBox_old(glm::vec3 vmin, glm::vec3 vmax,
-                     glm::vec3 rorig, glm::vec3 rdir, float* t_min, float* t_max) //NOTE: could be wrong
-{
-    glm::vec3 tmin = (vmin - rorig) / rdir;
-    glm::vec3 tmax = (vmax - rorig) / rdir;
-
-    glm::vec3 real_min = glm::min(tmin, tmax);
-    glm::vec3 real_max = glm::max(tmin, tmax);
-
-    glm::vec3 minmax = glm::vec3(glm::min(glm::min(real_max.x, real_max.y), real_max.z)); //NOTE: wrong
-    glm::vec3 maxmin = glm::vec3(glm::max(glm::max(real_min.x, real_min.y), real_min.z)); //NOTE: wrong
-
-    if (glm::dot(minmax, minmax) >= glm::dot(maxmin, maxmin))
-    {
-        *t_min = glm::dot(maxmin, maxmin);
-        *t_max = glm::dot(minmax, minmax);
-        return (glm::dot(maxmin, maxmin) > 0.001f ? true : false);
-    }
-    else return false;
-}
-
-void kd_update_state(size_t indx, unsigned char* type,
-                     skd_tree_traversal_node* node, skd_tree_leaf_node* leaf)
-{
-
-
-    *type = kd_tree[indx];
-
-    if(*type == KDTREE_LEAF)
-    {
-        *leaf = *((skd_tree_leaf_node*) (kd_tree + indx));
-
-    }
-    else
-        *node = *((skd_tree_traversal_node*) (kd_tree + indx));
-
-}
-
-typedef struct kd_stack_elem
-{
-    size_t node;
-    glm::vec3 Vmin;
-    glm::vec3 Vmax;
-    float min;
-    float max;
-} kd_stack_elem;
-
-void KdTreeComponent::traverse(glm::vec3 origin, glm::vec3 direction, glm::vec3 min, glm::vec3 max)
-{
-
-    kd_stack_elem stack[STACK_SIZE];
-    unsigned int stack_length = 0;
-
-
-    float         t_hit = INFINITY;
-    glm::vec2     hit_info = glm::vec2(0,0);
-    unsigned int  tri_indx;
-    float         t_min, t_max;
-    float         scene_t_min = -10000, scene_t_max = 10000;
-    skd_tree_traversal_node  node;
-    skd_tree_leaf_node  leaf;
-    unsigned char     current_type = KDTREE_NODE;
-    bool          pushdown = false;
-    skd_tree_traversal_node  root;
-    unsigned int          ray_indx;
-
-    glm::vec3 current_min = min;
-    glm::vec3 current_max = max;
-
-    root = *(skd_tree_traversal_node*)kd_tree;
-    if(!getTBoundingBox(origin, direction, min, max,
-                        &scene_t_min, &scene_t_max)) //SCENE_MIN is a macro
-    {
-        scene_t_max = -INFINITY;//t_max = INFINITY;
-        printf("Shit\n");
-    }
-    t_max = t_min = scene_t_min;
-    printf("scene smin:%f smax:%f\n", scene_t_min, scene_t_max);
-
-    while(t_max < scene_t_max)
-    {
-        //printf("HIT BOUNDING BOX");
-        if(stack_length == 0)
-        {
-            node  = root; //root
-            current_type = KDTREE_NODE;
-            t_min = t_max;
-            t_max = scene_t_max;
-            pushdown = true;
-        }
-        else
-        { //pop
-
-            //TODO: update this
-            //WRONG: node  = stack[stack_length-1].node;
-            //assert(stack_length == 1);
-            //printf("K it went around once!\n");
-            t_min = stack[stack_length-1].min;
-            t_max = stack[stack_length-1].max;
-            current_min = stack[stack_length-1].Vmin;
-            current_max = stack[stack_length-1].Vmax;
-            current_type = *(kd_tree+stack[stack_length-1].node);
-            //printf("K it retrieved some data from stack!\n");
-            stack_length--;
-            pushdown = false;
-            printf("RETRIEVED FROM STACK\n");
-        }
-
-
-        while(current_type != KDTREE_LEAF)
-        {
-            GenerateBoxMAIN(current_min*0.99f, current_max*0.99f);
-            //printf(":) ok test meme\n");
-
-            //NOTE: none of this branches
-            unsigned char k = node.k;
-            //assert(k<=2);
-            //assert(node.type<=2);
-            float t_split = (node.b - origin[k]) / direction[k];
-            //if(get_local_id(0)==0)
-            printf("\n%f\n", t_split);
-            //NOTE: CRASH HEPPENSE SOMEWHERE HERE
-            //NOTE: something weird happens to the indexs of the nodes
-            size_t first  = origin[k] < node.b ? node.left_ind : node.right_ind; //wrong
-            size_t second = origin[k] < node.b ? node.right_ind : node.left_ind; //wrong
-            //printf(":) ok test meme %d %llu %llu %llu %llu\n", (int) node.type, first, second, node.left_index, node.right_index);
-            //dbg_print_node(node);
-            //assert(first<150000);
-            //assert(second<150000);
-            printf("Thing %d\n", (unsigned char)current_type);
-
-            if( t_split >= t_max || t_split < 0)  //NOTE: branching necessary
-            {
-                if(first == node.left_ind)
-                    current_max[k] = node.b;
-                else
-                    current_min[k] = node.b;
-
-                kd_update_state(first, &current_type, &node, &leaf);
-            }
-            else if(t_split <= t_min)
-            {
-                if(second == node.left_ind)
-                    current_max[k] = node.b;
-                else
-                    current_min[k] = node.b;
-                kd_update_state(second, &current_type, &node, &leaf);
-            }
-            else
-            {
-                //assert(stack_length==(ulong)STACK_SIZE);
-                //update
-                glm::vec3 new_min = min, new_max = max;
-
-                if(second == node.left_ind)
-                    new_min[k] = node.b;
-                else
-                    new_max[k] = node.b;
-
-
-                stack[stack_length++] = {second, new_min, new_max, t_split, t_max}; //push
-                kd_update_state(first, &current_type, &node, &leaf);
-
-                if(first == node.left_ind)
-                    current_max[k] = node.b;
-                else
-                    current_min[k] = node.b;
-
-                //printf("test meme 1 complete\n");
-                printf("test meme 1 %llu\n", stack_length);
-
-                t_max = t_split;
-                pushdown = false;
-            }
-            printf("Thing2 %d\n", (unsigned char)current_type);
-
-            if(pushdown)
-            {
-                root = node;//UPDATE
-            }
-
-        }
-        //printf("HEY found something %d\n", leaf.num_triangles);
-        //Found leaf
-        if(leaf.num_triangles>0)
-        {
-            printf("ENTERED LEAF MAIN INTERSECTION test meme\n");
-
-            return;
-            /*vec3 tri[4];
-            unsigned int index_offset = *(__global uint*)(kd_tree+t);
-            //get vertex (first element of each index)
-            int4 idx_0 = read_imagei(indices, index_offset+0);
-            int4 idx_1 = read_imagei(indices, index_offset+1);
-            int4 idx_2 = read_imagei(indices, index_offset+2);
-
-            tri[0] = read_imagef(vertices, idx_0.x).xyz;
-            tri[1] = read_imagef(vertices, idx_1.x).xyz;
-            tri[2] = read_imagef(vertices, idx_2.x).xyz;
-
-            vec3 hit_coords; // t u v
-            if(does_collide_triangle(tri, &hit_coords, r))
-            {
-                if(hit_coords.x < t_hit)
-                {
-                    t_hit = hit_coords.x;     //t
-                    hit_info = hit_coords.yz; //u v
-                    tri_indx = index_offset;
-                }
-                printf("COLLISION\n");
-                //t_hit = min(t_hit, hit_coords.x); //t  NOTE: this is faster but it saves computation is we store u and v aswell
-                if(t_hit < t_min) // goes by closest to furthest, so if it hits it will be the closest
-                {//early exit
-                    break; //TODO: do something
-                }
-                }*/
-        }
-    }
-    printf("THIS THING SUCKS.");
-}
-
-void KdTreeComponent::cycle()
-{
-    static bool last_pressed  = false;
-    static bool last_pressedT = false;
-
-    if(ge::GraphicsCore::ctx->currentPipeline->getState()!=ge::PipelineState::Render)
-        return;
-    if(ge::GraphicsCore::ctx->currentPipeline->getCurrentStage()->type!=ge::PipelineDrawType::Default)
-        return;
-
-    if(transformComponent == nullptr)
-    {
-
-        if(ent->components.count("TransformComponent"))
-        {
-            transformComponent = (ge::TransformComponent*) ent->components.at("TransformComponent");
-
-
-        }
-        else
-        {
-            ge::Log::wrn("KdTreeComponent", "A KdTreeComponent requires a TransformComponent.");
-            return;
-        }
-    }
-    if(ge::KeyboardHandler::keyDownSticky(ge::KeyboardKey::K) && !last_pressed)
-    {
-        retrieve_data = true;
-        last_pressed = true;
-    }
-    else
-        if(!ge::KeyboardHandler::keyDownSticky(ge::KeyboardKey::K))
-            last_pressed = false;
-
-    if(ge::KeyboardHandler::keyDownSticky(ge::KeyboardKey::T) && !last_pressedT)
-    {
-        kd_traverse = true;
-        last_pressedT = true;
-    }
-    else
-        if(!ge::KeyboardHandler::keyDownSticky(ge::KeyboardKey::T))
-            last_pressedT = false;
-    const glm::vec3 min(-30.976175, -13.904981, -31.015106);
-    const glm::vec3 max(30.976175, 17.071194, 25.015106);
-
-    if(new_data_retrieved)
-    {
-        new_data_retrieved = false;
-        lkd_tree = kd_tree;
-        lkd_tree_size = kd_tree_size;
-        ge::Log::dbg("KdTreeComponent", "New Data has been retrieved.");
-
-        //glm::vec3 min(-1.328727, -1.108050, -10.190243);
-        //glm::vec3 max(1.281850, 1.446441, -6.997774);
-        //glm::vec3 min(-2.230403, -1.011691, -3.411920);
-        //glm::vec3 max(1.244233, 0.678684, -2.960731);
-
-        traversekd_and_gen((unsigned char*)lkd_tree, (unsigned char*)lkd_tree, 0,
-                           min, max);
-        GenerateBoxMAIN(min,max);
-        //THREE OF THEME ARE CORRECT.
-    }
-
-    if(kd_traverse)
-    {
-        kd_traverse = false;
-        traverse({0,0,0}, {0,-0.25,-1}, min, max);
-    }
-    //const glm::vec3 min(-1, -1, -1);
-    //const glm::vec3 max(-1, -1, -1);
-
-    //ge::Debug::DebugBox::draw(glm::vec3(1,0.8,0.8), min+max/2, glm::vec3(0.2f));
-
-
-}
-
-
-
-
-void KdTreeComponent::destroy()
-{
-
-}
-
-std::string KdTreeComponent::getTypeName()
-{
-    return "KdTreeComponent";
-}

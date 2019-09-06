@@ -67,9 +67,9 @@ void cl_info()
                             sizeof(max_work_group_size), &max_work_group_size, NULL); //NOTE: just reuse var
             printf(" %i.%d.%d Max work group size: %zu\n", i,  j+1, 4, max_work_group_size);
 
-            //clGetDeviceInfo(devices[j], CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
-            //sizeof(recommendedWorkgroupSize), &recommendedWorkgroupSize, NULL);
-            //printf(" %i.%d.%d Recommended work group size: %d\n", i,  j+1, 4, recommendedWorkgroupSize);
+            clGetDeviceInfo(devices[j], CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+            sizeof(recommendedWorkgroupSize), &recommendedWorkgroupSize, NULL);
+            printf(" %i.%d.%d Recommended work group size: %d\n", i,  j+1, 4, recommendedWorkgroupSize);
 
         }
 
@@ -196,7 +196,7 @@ void create_context(rcl_ctx* ctx)
             case 3: warps_per_sm = 6; break; //KEPLER (GK104/GK110) NOTE: ONLY 4 WARP SCHEDULERS THOUGH!
             case 5: warps_per_sm = 4; break; //Maxwell
             case 6: warps_per_sm = 4; break; //Pascal is confusing because the sms vary a lot. GP100 is 2, but GP104 and GP106 have 4
-            case 7: warps_per_sm = 2; break; //Volta/Turing Might not be correct(NOTE: 16 FP32 PER CORE? what about warps?)
+            case 7: warps_per_sm = 2; break; //Volta/Turing Might not be correct(NOTE: 16 FP32 PER CORE?)
             }
 
             printf("NVIDIA INFO: SM: %d,  WARP SIZE: %d, COMPUTE CAPABILITY: %d, WARPS PER SM: %d, TOTAL STREAM PROCESSORS: %d\n\n",
@@ -218,29 +218,29 @@ void create_context(rcl_ctx* ctx)
             break;
         }
         default: //APPLE is really bad and doesn't return the correct vendor id.
-        {        //Just going to use manually enter in data.
-            printf("WARNING: Unknown Device Manufacturer %u (%04X)\n", id, id);
-            unsigned int warp_size;
-            unsigned int compute_capability;
-            unsigned int num_sm;
-            unsigned int warps_per_sm = 6; //my laptop uses kepler
-            clGetDeviceInfo(ctx->device_id, CL_DEVICE_WARP_SIZE_NV, //warp size NOT WORKING ON OSX
-                            sizeof(unsigned int), &warp_size, NULL);
-            warp_size = 32;
-            clGetDeviceInfo(ctx->device_id, CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV, //compute capability
-                            sizeof(unsigned int), &compute_capability, NULL);
-            clGetDeviceInfo(ctx->device_id, CL_DEVICE_MAX_COMPUTE_UNITS, //number of stream multiprocessors
-                            sizeof(unsigned int), &num_sm, NULL);
-
-            printf("ASSUMING NVIDIA.\nNVIDIA INFO: SM: %d,  WARP SIZE: %d, COMPUTE CAPABILITY: %d, WARPS PER SM: %d, TOTAL STREAM PROCESSORS: %d\n\n",
-                   num_sm, warp_size, compute_capability, warps_per_sm, warps_per_sm*warp_size*num_sm);
-            ctx->simt_size = warp_size;
-            ctx->num_simt_per_multiprocessor = warps_per_sm;
-            ctx->num_multiprocessors = num_sm;
-            ctx->num_cores = warps_per_sm*warp_size*num_sm;
-            
-            break;
-        }
+        {        //Just going to manually enter in data.
+                printf("WARNING: Unknown Device Manufacturer %u (%04X)\n", id, id);
+                unsigned int warp_size;
+                unsigned int compute_capability;
+                unsigned int num_sm;
+                unsigned int warps_per_sm = 6; //my laptop uses kepler
+                clGetDeviceInfo(ctx->device_id, CL_DEVICE_WARP_SIZE_NV, //warp size NOT WORKING ON OSX
+                                sizeof(unsigned int), &warp_size, NULL);
+                warp_size = 32;
+                clGetDeviceInfo(ctx->device_id, CL_DEVICE_COMPUTE_CAPABILITY_MAJOR_NV, //compute capability
+                                sizeof(unsigned int), &compute_capability, NULL);
+                clGetDeviceInfo(ctx->device_id, CL_DEVICE_MAX_COMPUTE_UNITS, //number of stream multiprocessors
+                                sizeof(unsigned int), &num_sm, NULL);
+                
+                printf("ASSUMING NVIDIA.\nNVIDIA INFO: SM: %d,  WARP SIZE: %d, COMPUTE CAPABILITY: %d, WARPS PER SM: %d, TOTAL STREAM PROCESSORS: %d\n\n",
+                       num_sm, warp_size, compute_capability, warps_per_sm, warps_per_sm*warp_size*num_sm);
+                ctx->simt_size = warp_size;
+                ctx->num_simt_per_multiprocessor = warps_per_sm;
+                ctx->num_multiprocessors = num_sm;
+                ctx->num_cores = warps_per_sm*warp_size*num_sm;
+                
+                break;
+            }
         }
 
     }
@@ -439,6 +439,7 @@ size_t get_workgroup_size(raytracer_context* rctx, cl_kernel kernel)
 }
 
 
+//This is a quick implementation, not concerned about load times right now.
 void load_program_raw(rcl_ctx* ctx, char* data,
                      char** kernels, unsigned int num_kernels,
                       rcl_program* program, char** macros, unsigned int num_macros)

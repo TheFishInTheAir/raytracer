@@ -500,8 +500,8 @@ unsigned int kd_tree_generate_serialized_buf_rec(kd_tree* tree, kd_tree_node* no
         //this goes after the left node
         unsigned int right_offset = kd_tree_generate_serialized_buf_rec(tree, node->right, left_offset);
 
-        n.left_ind  = offset;
-        n.right_ind = left_offset;
+        n.left_ind  = offset/8;
+        n.right_ind = left_offset/8;
 
         memcpy(tree->buffer+struct_start_offset, &n, sizeof(_skd_tree_traversal_node));
 
@@ -525,10 +525,29 @@ void kd_tree_generate_serialized(kd_tree* tree)
     mem_needed += tree->num_leaves * sizeof(_skd_tree_leaf_node); //leaf nodes
     mem_needed += (tree->num_indices_total+tree->num_tris_padded) * sizeof(unsigned int); //triangle indices
 
+    //char* name = malloc(256);
+    //sprintf(name, "%d.bkdt", mem_needed);
+
     tree->buffer_size = mem_needed;
     printf("k-d tree is %d bytes long...", mem_needed);
 
     tree->buffer = malloc(mem_needed);
+
+
+    /*FILE* f = fopen(name, "r");
+    if(f!=NULL)
+    {
+        printf("Using cached kd tree.\n");
+        fread(tree->buffer, 1, mem_needed, f);
+        fclose(f);
+    }
+    else*/
     kd_tree_generate_serialized_buf_rec(tree, tree->root, 0);
 
+        /*{
+        f = fopen(name, "w");
+        fwrite(tree->buffer, 1, mem_needed, f);
+        fclose(f);
+    }
+    free(name);*/
 }

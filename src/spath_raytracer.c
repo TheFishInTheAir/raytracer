@@ -157,6 +157,8 @@ void spath_raytracer_kd_collision(spath_raytracer_context* sprctx)
 
 
 
+    //NOTE: used 16 on windows
+    //NOTE: only using simt size on windows
     size_t global[1] = {sprctx->rctx->rcl->num_cores*8};//ok I give up with the peristent threading.
     size_t local[1]  = {sprctx->rctx->rcl->simt_size * sprctx->rctx->rcl->num_simt_per_multiprocessor};//sprctx->rctx->rcl->simt_size; sprctx->rctx->rcl->num_simt_per_multiprocessor
 
@@ -353,8 +355,11 @@ void spath_raytracer_trace(spath_raytracer_context* sprctx)
 void spath_raytracer_render(spath_raytracer_context* sprctx)
 {
     static int tbottle = 0;
+    int t1, t2, t3, t4, t5;
+    
     //Sleep(5000);
-    int t1 = os_get_time_mili(abst);
+    if((sprctx->current_iteration+1)%50 == 0)
+        t1 = os_get_time_mili(abst);
 
     //spath_raytracer_update_random(sprctx);
     spath_raytracer_xor_rng(sprctx);
@@ -372,6 +377,7 @@ void spath_raytracer_render(spath_raytracer_context* sprctx)
     //printf("t1\n");
 
     bad_buf_update(sprctx);
+<<<<<<< HEAD
     int t2 = os_get_time_mili(abst);
     //printf("t2\n");
     spath_raytracer_kd_collision(sprctx);
@@ -385,6 +391,31 @@ void spath_raytracer_render(spath_raytracer_context* sprctx)
     //printf("t5\n");
     printf("num_gen: %d, collision: %d, trace: %d, draw: %d, time_since: %d, total: %d\n",
            t2-t1, t3-t2, t4-t3, t5-t4, t1-tbottle, t5-tbottle);
+=======
+
+    if(sprctx->current_iteration%50 == 0)
+        t2 = os_get_time_mili(abst);
+
+    spath_raytracer_kd_collision(sprctx);
+    if(sprctx->current_iteration%50 == 0)
+        t3 = os_get_time_mili(abst);
+
+    spath_raytracer_trace(sprctx);
+    if(sprctx->current_iteration%50 == 0)
+        t4 = os_get_time_mili(abst);
+
+    if(sprctx->current_iteration%50 == 0)
+        spath_raytracer_avg_to_out(sprctx);
+
+    if(sprctx->current_iteration%50 == 0)
+        t5 = os_get_time_mili(abst);
+
+    if(sprctx->current_iteration%50 == 0)
+        printf("num_gen: %d, collision: %d, trace: %d, draw: %d, time_since: %d, total: %d    %d.%d/%d    %d:%d:%d\n",
+               t2-t1, t3-t2, t4-t3, t5-t4, t1-tbottle, t5-tbottle,
+               sprctx->current_iteration/4, sprctx->current_iteration%4, sprctx->num_iterations/4,
+               ((t5-sprctx->start_time)/1000)/60, ((t5-sprctx->start_time)/1000)%60, (t5-sprctx->start_time)%1000);
+>>>>>>> dcb8a7098da700ea6078380b4b9f79916d446314
     //spath_raytracer_kd_test(sprctx);
     tbottle = os_get_time_mili(abst);
 }
@@ -393,7 +424,7 @@ void spath_raytracer_prepass(spath_raytracer_context* sprctx)
 {
     printf("Starting Split Path Raytracer Prepass. \n");
     sprctx->render_complete = false;
-    sprctx->num_iterations = 256*4;//arbitrary default
+    sprctx->num_iterations = 2048*4;//arbitrary default
     srand((unsigned int)os_get_time_mili(abst));
     sprctx->start_time = (unsigned int) os_get_time_mili(abst);
     bad_buf_update(sprctx);

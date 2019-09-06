@@ -5,8 +5,8 @@
 struct scene;
 //struct AABB;
 //TODO: make these variable from the ui, eventually
-#define KDTREE_KT 1.0f //Cost for traversal
-#define KDTREE_KI 1.5f //Cost for intersection
+#define KDTREE_KT 2.0f //Cost for traversal
+#define KDTREE_KI 1.0f //Cost for intersection
 
 #define KDTREE_LEAF 1
 #define KDTREE_NODE 2

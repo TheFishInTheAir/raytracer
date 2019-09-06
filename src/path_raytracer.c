@@ -140,7 +140,6 @@ void path_raytracer_push_path(path_raytracer_context* prctx)
                               prctx->rctx->output_buffer,
                               0, NULL, NULL );
     ASRT_CL("Failed to read output array");
-    //printf("RENDER\n");
 
 }
 

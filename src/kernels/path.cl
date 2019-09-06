@@ -13,7 +13,7 @@ vec3 uniformSampleHemisphere(const float r1, const float r2)
 vec3 cosineSampleHemisphere(float u1, float u2, vec3 normal)
 {
     const float r = sqrt(u1);
-    const float theta = 2 * M_PI_F * u2;
+    const float theta = 2.f * M_PI_F * u2;
 
     vec3 w = normal;
     vec3 axis = fabs(w.x) > 0.1f ? (vec3)(0.0f, 1.0f, 0.0f) : (vec3)(1.0f, 0.0f, 0.0f);
@@ -99,9 +99,9 @@ __kernel void segmented_path_trace_init(
     vec3 pos = r.orig + r.dir*res.t;
 
     vec3 normal =
-        read_imagef(normals, i1.y).xyz*(1-res.u-res.v)+
-        read_imagef(normals, i2.y).xyz*res.u+
-        read_imagef(normals, i3.y).xyz*res.v;
+        read_imagef(normals, (int)i1.y).xyz*(1-res.u-res.v)+
+        read_imagef(normals, (int)i2.y).xyz*res.u+
+        read_imagef(normals, (int)i3.y).xyz*res.v;
 
     spd.mask *= mat.colour;
 
@@ -145,7 +145,7 @@ __kernel void segmented_path_trace(
 
     spath_progress spd = spath_data[offset];
 
-    if(spd.sample_num==256) //get this from the cpu
+    if(spd.sample_num==2048) //get this from the cpu
     {
         ray nr;
         nr.orig = (vec3)(0);
@@ -176,9 +176,9 @@ __kernel void segmented_path_trace(
     //pos = (vec3) (0, 0, -2);
 
     vec3 normal =
-        read_imagef(normals, i1.y).xyz*(1-res.u-res.v)+
-        read_imagef(normals, i2.y).xyz*res.u+
-        read_imagef(normals, i3.y).xyz*res.v;
+        read_imagef(normals, (int)i1.y).xyz*(1-res.u-res.v)+
+        read_imagef(normals, (int)i2.y).xyz*res.u+
+        read_imagef(normals, (int)i3.y).xyz*res.v;
 
     //TODO: BETTER RANDOM PLEASE
 
@@ -208,13 +208,11 @@ __kernel void segmented_path_trace(
     for(int i = 0; i < 7; i++)
         get_random(&seed1, &seed2);
 
-    barrier(0);
-
      //MESSY CODE!
     float rand1 = get_random(&seed1, &seed2);
-    float rand2 = get_random(&seed1, &seed2);
+    float rand2 = get_random(&seed2, &seed1);
 
-    //out_tex[offset] += (vec4)((vec3)(rand2*2) ,1);
+    //out_tex[offset] += (vec4)((vec3)(clamp((rand2*8)-2.f, 0.f, 1.f)), 1.f);
     //return;
 
     ray sr;
@@ -232,11 +230,13 @@ __kernel void segmented_path_trace(
         //printf("SHIT PANT\n");
         spd.bounce_num = NUM_BOUNCES; //TODO: uncomment
         spd.accum_color += spd.mask * sky.xyz;
+        //sr.orig = (vec3)(0);
+        //sr.dir = (vec3)(0);
     }
     else
     {
         //NOTE: janky emission, if reflectivity is 1 emission is 2 (only for tests)
-        spd.accum_color += spd.mask * (float)(mat.reflectivity==1.)*2; //NOTE: JUST ADD EMMISION
+        spd.accum_color += spd.mask * (float)(mat.reflectivity==1.f)*2.f; //NOTE: JUST ADD EMMISION
 
         spd.mask *= mat.colour;
 
@@ -281,9 +281,9 @@ __kernel void segmented_path_trace(
         //pos = (vec3) (0, 0, -2);
 
         normal =
-            read_imagef(normals, i1.y).xyz*(1-res.u-res.v)+
-            read_imagef(normals, i2.y).xyz*res.u+
-            read_imagef(normals, i3.y).xyz*res.v;
+            read_imagef(normals, (int)i1.y).xyz*(1-res.u-res.v)+
+            read_imagef(normals, (int)i2.y).xyz*res.u+
+            read_imagef(normals, (int)i3.y).xyz*res.v;
 
         spd.mask *= mat.colour;
         if( (float)(mat.reflectivity==1.)) //TODO: just add an emmision value in material

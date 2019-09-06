@@ -108,7 +108,7 @@ void run(void* unnused_rn)
     scene* rscene = load_scene_json_url("scenes/path_obj2.rsc"); //TODO: support changing this during runtime
 
     rctx->stat_scene = rscene;
-    rctx->num_samples = 128; //NOTE: never actually used
+    rctx->num_samples = 512; //NOTE: never actually used
 
     ss_raytracer_context* ssrctx = NULL;
     path_raytracer_context* prctx = NULL;

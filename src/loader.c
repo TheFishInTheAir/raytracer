@@ -158,7 +158,6 @@ void load_obj(struct obj_list_elem elem, int* mesh_offset, int* vert_offset, int
 
         for(int f = 0; f < shape.length; f++)
         {
-            //TODO: don't do this error check for each iteration
             if(elem.attrib.face_num_verts[f+shape.face_offset]!=3)
             {
                 //This should never get called because the mesh gets triangulated when loaded.
@@ -243,7 +242,7 @@ scene* load_scene_json(char* json)
     }
 
     //Version
-    {//TODO: do something with this.
+    {//TODO: Add a version check.
         int major  = (int)json_object_dotget_number(root_object, "version.major");
         int minor  = (int)json_object_dotget_number(root_object, "version.major");
         const char* type =      json_object_dotget_string(root_object, "version.type");
@@ -348,16 +347,41 @@ scene* load_scene_json(char* json)
             {
                 //xm4_identity(model_mat);
                 mat4 translation_mat;
-                xm4_translatev(translation_mat,
-                               json_object_get_number(mesh, "px"),
-                               json_object_get_number(mesh, "py"),
-                               json_object_get_number(mesh, "pz"));
                 mat4 scale_mat;
-                xm4_scalev(scale_mat,
-                           json_object_get_number(mesh, "sx"),
-                           json_object_get_number(mesh, "sy"),
-                           json_object_get_number(mesh, "sz"));
-                //TODO: add rotation.
+                mat4 rot_mat;
+
+                xm4_identity(translation_mat);
+                xm4_identity(scale_mat);
+                xm4_identity(rot_mat);
+
+
+                if(json_object_has_value(mesh, "px"))
+                {
+                    xm4_translatev(translation_mat,
+                                   json_object_get_number(mesh, "px"),
+                                   json_object_get_number(mesh, "py"),
+                                   json_object_get_number(mesh, "pz"));
+                }
+                //if(json_obje)
+                if(json_object_has_value(mesh, "sx"))
+                {
+                    xm4_scalev(scale_mat,
+                               json_object_get_number(mesh, "sx"),
+                               json_object_get_number(mesh, "sy"),
+                               json_object_get_number(mesh, "sz"));
+                }
+
+                if(json_object_has_value(mesh, "rw"))
+                {
+                    float quat[] = {json_object_get_number(mesh, "rx"),
+                                    json_object_get_number(mesh, "ry"),
+                                    json_object_get_number(mesh, "rz"),
+                                    json_object_get_number(mesh, "rw")};
+
+                    xm4_from_quat(rot_mat, quat);
+                }
+
+                xm4_mul(scale_mat, scale_mat, rot_mat);
                 xm4_mul(current->model_mat, translation_mat, scale_mat);
             }
             free(data);
@@ -430,5 +454,5 @@ scene* load_scene_json_url(char* url)
 {
     long variable_doesnt_matter;
 
-    return load_scene_json( load_file(url, &variable_doesnt_matter) ); //TODO: put data
+    return load_scene_json( load_file(url, &variable_doesnt_matter) );
 }

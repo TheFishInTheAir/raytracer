@@ -64,7 +64,7 @@ void raytracer_build_kernels(raytracer_context* rctx)
     num_macros++;
 
 
-    //TODO: do something better than this
+
     char* macros[]  = {sphere_macro, plane_macro, mesh_macro, index_macro,
                        material_macro, os_macro, blockx_macro, blocky_macro,
                        min_macro, max_macro};
@@ -117,7 +117,7 @@ void raytracer_build(raytracer_context* rctx)
                                             rctx->width*rctx->height*4, NULL, &err);
     ASRT_CL("Error Creating OpenCL Output Buffer.");
 
-    //TODO: all output buffers and frame buffers should be images.
+    //NOTE: all output buffers and frame buffers should be images.
     rctx->cl_path_fresh_frame_buffer = clCreateBuffer(rctx->rcl->context, CL_MEM_READ_WRITE,
                                                  rctx->width*rctx->height*sizeof(vec4), NULL, &err);
     ASRT_CL("Error Creating OpenCL Fresh Frame Buffer.");
@@ -298,7 +298,7 @@ void _raytracer_path_trace(raytracer_context* rctx, unsigned int sample_num)
 }
 
 
-void _raytracer_cast_rays(raytracer_context* rctx) //TODO: do more path tracing stuff here
+void _raytracer_cast_rays(raytracer_context* rctx)
 {
     int err;
 

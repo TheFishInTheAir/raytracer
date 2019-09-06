@@ -1,6 +1,6 @@
 #include <geom.h>
 #define DEBUG_PRINT_VEC3(n, v) printf(n ": (%f, %f, %f)\n", v[0], v[1], v[2])
-
+#define EPSILON 0.0000001f
 
 bool solve_quadratic(float *a, float *b, float *c, float *x0, float *x1)
 {
@@ -142,7 +142,7 @@ inline void AABB_construct_from_vertices(AABB* result, vec3* vertices,
 
 inline bool AABB_is_planar(AABB* source, uint8_t k)
 {
-    if(source->max[k]-source->min[k] == 0.0f) //TODO: use epsilon instead of 0
+    if(source->max[k]-source->min[k] <= EPSILON)
         return true;
     return false;
 }

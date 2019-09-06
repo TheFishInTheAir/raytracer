@@ -277,9 +277,9 @@ __kernel void kdtree_intersection(
                 unsigned int index_offset =
                     *(__global uint*)(kd_tree+leaf.triangle_start+(t*sizeof(unsigned int)));
                 //get vertex (first element of each index)
-                int4 idx_0 = read_imagei(indices, index_offset+0);
-                int4 idx_1 = read_imagei(indices, index_offset+1);
-                int4 idx_2 = read_imagei(indices, index_offset+2);
+                int4 idx_0 = read_imagei(indices, (int)index_offset+0);
+                int4 idx_1 = read_imagei(indices, (int)index_offset+1);
+                int4 idx_2 = read_imagei(indices, (int)index_offset+2);//apple likes ints, hates uints though
 
                 tri[0] = read_imagef(vertices, idx_0.x).xyz;
                 tri[1] = read_imagef(vertices, idx_1.x).xyz;
@@ -379,9 +379,9 @@ __kernel void kdtree_test_draw(
         out_tex[offset] = get_colour( (vec4) (0) );
         return;
     }
-    int4 i1 = read_imagei(indices, res.triangle_index);
-    int4 i2 = read_imagei(indices, res.triangle_index+1);
-    int4 i3 = read_imagei(indices, res.triangle_index+2);
+    int4 i1 = read_imagei(indices, (int)res.triangle_index);
+    int4 i2 = read_imagei(indices, (int)res.triangle_index+1);
+    int4 i3 = read_imagei(indices, (int)res.triangle_index+2);
     mesh m = meshes[i1.w];
     material mat = material_buffer[m.material_index];
 

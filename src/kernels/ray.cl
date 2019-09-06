@@ -3,14 +3,14 @@ vec4 shade(collision_result result, scene s, MESH_SCENE_DATA_PARAM)
 {
     const vec3 light_pos = (vec3)(1,2, 0);
     vec3 nspace_light_dir = normalize(light_pos-result.point);
-    vec4 test_lighting = (vec4) (clamp((float)dot(result.normal, nspace_light_dir), 0.0f, 1.0f));
+    vec4 test_lighting ;//= (vec4) (clamp((float)dot(result.normal, nspace_light_dir), 0.0f, 1.0f));
     ray r;
     r.dir  = nspace_light_dir;
     r.orig = result.point + nspace_light_dir*0.00001f;
     collision_result _cr;
     bool visible = !collide_all(r, &_cr, s, MESH_SCENE_DATA);
-    test_lighting *= (vec4)(result.mat.colour, 1.0f);
-    return visible*test_lighting/2;
+    test_lighting = (vec4)(result.mat.colour, 1.0f);
+    return visible*test_lighting;
 }
 
 
@@ -50,7 +50,7 @@ __kernel void cast_ray_test(
 
     ray r;
     r = ray_buffer[ray_offset];
-    r.orig = pos.xyz; //NOTE: unnecesesary rn, in progress of updating kernels w/ the new ray buffers.
+    //r.orig = pos.xyz; //NOTE: unnecesesary rn, in progress of updating kernels w/ the new ray buffers.
 
     //r.dir  = (vec3)(0,0,-1);
 
@@ -104,8 +104,11 @@ __kernel void cast_ray_test(
     }
 
     colour = mix(colour, colours[0],  result.mat.reflectivity);
-
+#ifdef WIN32
     out_tex[offset] = get_colour( colour );
+#else
+    out_tex[offset] = get_colour( colour.zyxw );
+#endif
 }
 
 

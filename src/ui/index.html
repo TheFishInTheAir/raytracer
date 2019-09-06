@@ -20,6 +20,7 @@
   	<button onclick="send_sb_cmd()">Simple Raytracer</button>
   	<button onclick="send_ss_cmd()">Path Raytracer</button>
   	<button onclick="send_path_cmd()">Split Path Tracer</button>
+    <button onclick="send_clear_cmd()">Clear Screen</button>
 
 	<div>
   		<input id="scene" type="text" value="scenes/path_obj_test.rsc">
@@ -89,6 +90,16 @@
    			ws.send(JSON.stringify(data));
    		}
 
+    function send_clear_cmd()
+    {
+        data = {
+            type:1,
+            action:{
+                type:10
+            }
+        }
+        ws.send(JSON.stringify(data));
+    }
    		function send_scene_change_cmd()
    		{
    			data = {
@@ -100,6 +111,7 @@
    			}
    			ws.send(JSON.stringify(data));
    		}
+    
 
    		function parse_ws(data)
    		{

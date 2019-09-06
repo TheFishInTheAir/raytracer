@@ -23,7 +23,7 @@ path_raytracer_context* init_path_raytracer_context(struct _rt_ctx* rctx)
 }
 
 //NOTE: the more divisions the slower.
-#define WATCHDOG_DIVISIONS_X 2 //TODO: REMOVE THE WATCHDOG DIVISION SYSTEM
+#define WATCHDOG_DIVISIONS_X 2
 #define WATCHDOG_DIVISIONS_Y 2
 void path_raytracer_path_trace(path_raytracer_context* prctx)
 {

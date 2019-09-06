@@ -68,6 +68,13 @@ void handle_ws_request(struct mg_connection *c, char* data)
             printf("Not supported\n");
             return;
         }
+        case 10:
+        {
+            printf("UI Event Queued: Clear\n");
+            uctx.rctx->event_stack[uctx.rctx->event_position++] = 10; //not well implemented yet.
+                
+            return;
+        }
         }
         break;
 

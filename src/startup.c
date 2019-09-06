@@ -105,7 +105,7 @@ void run(void* unnused_rn)
 
 
 
-    scene* rscene = load_scene_json_url("scenes/path_obj3.rsc"); //TODO: support changing this during runtime
+    scene* rscene = load_scene_json_url("scenes/path_obj2.rsc"); //TODO: support changing this during runtime
 
     rctx->stat_scene = rscene;
     rctx->num_samples = 128; //NOTE: never actually used
@@ -179,6 +179,16 @@ void run(void* unnused_rn)
 
                 break;
             }
+            case(10):
+            {
+                printf("Clearing\n");
+                
+                current_renderer = 10;
+                    
+                os_draw_weird(abst);
+                os_update(abst);
+                break;
+                }
             }
         }
 
@@ -187,20 +197,22 @@ void run(void* unnused_rn)
         case(SS_RAYTRACER):
         {
             ss_raytracer_render(ssrctx);
+            os_update(abst);
             break;
         }
         case(PATH_RAYTRACER):
         {
             path_raytracer_render(prctx);
+            os_update(abst);
             break;
         }
         case(SPLIT_PATH_RAYTRACER):
         {
             spath_raytracer_render(sprctx);
+            os_update(abst);
             break;
         }
         }
-        os_update(abst);
     }
 
     //all of below shouldn't be a thing.

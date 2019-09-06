@@ -157,7 +157,7 @@ void spath_raytracer_kd_collision(spath_raytracer_context* sprctx)
 
 
 
-    size_t global[1] = {sprctx->rctx->rcl->num_cores*16};//ok I give up with the peristent threading.
+    size_t global[1] = {sprctx->rctx->rcl->num_cores*8};//ok I give up with the peristent threading.
     size_t local[1]  = {sprctx->rctx->rcl->simt_size * sprctx->rctx->rcl->num_simt_per_multiprocessor};//sprctx->rctx->rcl->simt_size; sprctx->rctx->rcl->num_simt_per_multiprocessor
 
     err = clEnqueueNDRangeKernel(sprctx->rctx->rcl->commands, kernel, 1,
@@ -166,7 +166,6 @@ void spath_raytracer_kd_collision(spath_raytracer_context* sprctx)
 
     err = clFinish(sprctx->rctx->rcl->commands);
     ASRT_CL("Something happened while executing kd tree traversal kernel");
-
 }
 
 void spath_raytracer_ray_test(spath_raytracer_context* sprctx)
@@ -370,17 +369,20 @@ void spath_raytracer_render(spath_raytracer_context* sprctx)
     }
 
     //spath_raytracer_ray_test(sprctx);
-
+    //printf("t1\n");
 
     bad_buf_update(sprctx);
     int t2 = os_get_time_mili(abst);
+    //printf("t2\n");
     spath_raytracer_kd_collision(sprctx);
     int t3 = os_get_time_mili(abst);
+    //printf("t3\n");
     spath_raytracer_trace(sprctx);
     int t4 = os_get_time_mili(abst);
+    //printf("t4\n");
     spath_raytracer_avg_to_out(sprctx);
     int t5 = os_get_time_mili(abst);
-
+    //printf("t5\n");
     printf("num_gen: %d, collision: %d, trace: %d, draw: %d, time_since: %d, total: %d\n",
            t2-t1, t3-t2, t4-t3, t5-t4, t1-tbottle, t5-tbottle);
     //spath_raytracer_kd_test(sprctx);

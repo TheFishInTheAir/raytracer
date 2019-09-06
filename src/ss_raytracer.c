@@ -32,15 +32,21 @@ void ss_raytracer_render(ss_raytracer_context* srctx)
     //free(result);
 
     size_t global;
-
-    global =  srctx->rctx->width*srctx->rctx->height;
-    err = clEnqueueNDRangeKernel(srctx->rctx->rcl->commands, kernel, 1, NULL, &global,
-                                 NULL, 0, NULL, NULL);
+    size_t goffset;
+#define WATCHDOG_DIVS_BECAUSE_THERE_IS_NO_WAY_TO_DISABLE_OSX_WATCHDOG_TIMER 16
+    for(int i = 0; i < WATCHDOG_DIVS_BECAUSE_THERE_IS_NO_WAY_TO_DISABLE_OSX_WATCHDOG_TIMER; i++)
+    {
+        global =  srctx->rctx->width*srctx->rctx->height/WATCHDOG_DIVS_BECAUSE_THERE_IS_NO_WAY_TO_DISABLE_OSX_WATCHDOG_TIMER;
+        goffset = global*i;
+        err = clEnqueueNDRangeKernel(srctx->rctx->rcl->commands, kernel, 1, &goffset, &global,
+                                     NULL, 0, NULL, NULL);
+    }
     ASRT_CL("Failed to Execute Kernel");
 
     err = clFinish(srctx->rctx->rcl->commands);
     ASRT_CL("Something happened during kernel execution");
 
+    printf("%d, %d\n", srctx->rctx->width, srctx->rctx->height); fflush(stdout);
     err = clEnqueueReadBuffer(srctx->rctx->rcl->commands, srctx->rctx->cl_output_buffer, CL_TRUE, 0,
                               srctx->rctx->width*srctx->rctx->height*sizeof(int),
                               srctx->rctx->output_buffer, 0, NULL, NULL );

@@ -628,7 +628,7 @@ void test_sphere_raytracer(rcl_ctx* ctx, rcl_program* program,
 
 
     clFinish(ctx->commands);
-
+    
 
     err = clEnqueueReadBuffer(ctx->commands, tex, CL_TRUE, 0, width*height*4, bitmap, 0, NULL, NULL );
     if (err != CL_SUCCESS)

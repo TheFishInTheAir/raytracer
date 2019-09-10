@@ -291,15 +291,9 @@ __kernel void kdtree_intersection(
                 unsigned int index_offset =
                     *((__global uint*)(kd_tree+leaf.triangle_start)+t);
                 //get vertex (first element of each index)
-<<<<<<< HEAD
                 int4 idx_0 = read_imagei(indices, (int)index_offset+0);
                 int4 idx_1 = read_imagei(indices, (int)index_offset+1);
                 int4 idx_2 = read_imagei(indices, (int)index_offset+2);//apple likes ints, hates uints though
-=======
-                const int4 idx_0 = read_imagei(indices, (int)index_offset+0);
-                const int4 idx_1 = read_imagei(indices, (int)index_offset+1);
-                const int4 idx_2 = read_imagei(indices, (int)index_offset+2);
->>>>>>> dcb8a7098da700ea6078380b4b9f79916d446314
 
                 tri[0] = read_imagef(vertices, (int)idx_0.x).xyz;
                 tri[1] = read_imagef(vertices, (int)idx_1.x).xyz;

@@ -1,7 +1,7 @@
 echo cool fancy osx build script
 #clang ./src/_compiler_sources.c -I./libs/ -I./src/ -I./include/
 #gcc ./src/osx.c -fobjc-arc -framework Cocoa -x objective-c -o test
-if ! -a ./build ; then
+if !  ./build ; then
    mkdir build
 fi
 

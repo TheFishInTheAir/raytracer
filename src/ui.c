@@ -83,7 +83,6 @@ void handle_ws_request(struct mg_connection *c, char* data)
     {
 
         printf("GE2 requested k-d tree.\n");
-        //char buf[] = "{ \"type\":0, \"message\":\"Nothing Right Now.\"}";
         if(uctx.rctx->stat_scene->kdt->buffer!=NULL)
         {
 
@@ -132,15 +131,12 @@ static void handle_ws(struct mg_connection *c, int ev, void* ev_data) {
     {
         struct websocket_message *wm = (struct websocket_message *) ev_data;
         /* New websocket message. Tell everybody. */
-        //struct mg_str d = {(char *) wm->data, wm->size};
-        //printf("WOW K: %s\n", wm->data);
+
         handle_ws_request(c, wm->data);
         break;
     }
     }
 
-    //printf("TEST 3\n");
-    //c->flags |= MG_F_SEND_AND_CLOSE;
 }
 
 static void handle_ocp_li(struct mg_connection *c, int ev, void* ev_data) {
@@ -150,13 +146,10 @@ static void handle_ocp_li(struct mg_connection *c, int ev, void* ev_data) {
         // We have received an HTTP request. Parsed request is contained in `hm`.
         // Send HTTP reply to the client which shows full original request.
         mg_send_head(c, 200, ___src_ui_ocp_li_woff_len, "Content-Type: application/font-woff");
-        //c->send_mbuf = ___src_ui_ocp_li_woff;
-        //c->content_len = ___src_ui_ocp_li_woff_len;
+
 
         mg_send(c, ___src_ui_ocp_li_woff, ___src_ui_ocp_li_woff_len);
-        //mg_printf(c, "%.*s", (int)___src_ui_ocp_li_woff_len, ___src_ui_ocp_li_woff);
     }
-    //printf("TEST 2\n");
     c->flags |= MG_F_SEND_AND_CLOSE;
 }
 

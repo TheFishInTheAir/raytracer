@@ -215,76 +215,6 @@ void run(void* unnused_rn)
         }
     }
 
-    //all of below shouldn't be a thing.
-
-    raytracer_build(rctx);
-    raytracer_prepass(rctx);
-
-    xm4_identity(rctx->stat_scene->camera_world_matrix);
-
-    float dist = 0.f;
-
-
-    int _timer_store = 0;
-    int _timer_counter = 0;
-    float _timer_average = 0.0f;
-    printf("Rendering:\n\n");
-
-    /* static float t = 0.0f; */
-    /* t += 0.0005f; */
-    /* dist = sin(t)+1; */
-    /* //mat4 temp; */
-    /* xm4_translatev(rctx->stat_scene->camera_world_matrix, 0, dist, 0); */
-    int real_start = os_get_time_mili(abst);
-    while(should_run)
-    {
-
-        if(should_pause)
-            continue;
-        int last_time = os_get_time_mili(abst);
-
-        if(kbhit())
-        {
-            switch (getc(stdin))
-            {
-            case 'c':
-                exit(1);
-                break;
-            case 27: //ESCAPE
-                exit(1);
-                break;
-            default:
-                break;
-            }
-        }
-
-        //raytracer_refined_render(rctx);
-        raytracer_render(rctx);
-        if(rctx->render_complete)
-        {
-            printf("\n\nRender took: %02i ms (%d samples)\n\n",
-                   os_get_time_mili(abst)-real_start, rctx->num_samples);
-            break;
-        }
-
-
-        int mili = os_get_time_mili(abst)-last_time;
-        _timer_store += mili;
-        _timer_counter++;
-        printf("\rFrame took: %02i ms, average per 20 frames: %0.2f, avg fps: %03.2f (%d/%d)    ",
-               mili, _timer_average, 1000.0f/_timer_average,
-               rctx->current_sample, rctx->num_samples);
-        fflush(stdout);
-        if(_timer_counter>20)
-        {
-            _timer_counter = 0;
-            _timer_average = (float)(_timer_store)/20.f;
-            _timer_store = 0;
-        }
-        os_update(abst);
-    }
-
-
 }
 
 int startup() //main function called from win32 abstraction
@@ -296,12 +226,7 @@ int startup() //main function called from win32 abstraction
 #endif
     os_start(abst);
     os_start_thread(abst, run, NULL);
-    //win32_start_thread(run, NULL);
 
     os_loop_start(abst);
     return 0;
-    /*
-    printf("Hello World\n");
-    testWin32();
-    return 0;*/
 }

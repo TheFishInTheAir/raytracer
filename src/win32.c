@@ -60,10 +60,7 @@ void win32_draw_meme()
 
             *pixel = 0;
             ++pixel;
-            /* ((char*)ctx->bitmap_memory)[(x+y*width)*4]   =  (y%2) ? 0xff : 0x00; */
-            /* ((char*)ctx->bitmap_memory)[(x*4+y*width)+1] =  0x00; */
-            /* ((char*)ctx->bitmap_memory)[(x*4+y*width)+2] =  (y%2) ? 0xff : 0x00; */
-            /* ((char*)ctx->bitmap_memory)[(x*4+y*width)+3] =  0x00; */
+            
         }
         row += pitch;
     }
@@ -166,11 +163,6 @@ LRESULT CALLBACK WndProc(HWND win, UINT msg, WPARAM wParam, LPARAM lParam)
         HDC device_context = BeginPaint(win, &paint);
         EndPaint(win, &paint);
 
-        /*int x = paint.rcPaint.left;
-        int y = paint.rcPaint.top;
-        int height = paint.rcPaint.bottom - paint.rcPaint.top;
-        int width  = paint.rcPaint.right - paint.rcPaint.left;*/
-        //PatBlt(device_context, x, y, width, height, BLACKNESS);
 
         RECT drawable_rect;
         GetClientRect(win, &drawable_rect);
@@ -217,7 +209,7 @@ int _WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
            HIGH_PRIORITY_CLASS
            ))
     {
-        printf("FUCKKKK!!!\n");
+        printf("Failed to change start thread system priority to High.\n");
     }
 
 
@@ -321,12 +313,9 @@ int win32_get_time_mili()
 
 void win32_update()
 {
-    //RECT win_rect;
-    //GetClientRect(ctx->win, &win_rect);
     HDC dc = GetDC(ctx->win);
     win32_update_window(dc, ctx->win, ctx->width, ctx->height);
     ReleaseDC(ctx->win, dc);
-
 }
 
 
@@ -373,7 +362,5 @@ void win32_start_thread(void (*func)(void*), void* data)
     meta->data = data;
     meta->func = func;
     HANDLE t = CreateThread(NULL, 0, thread_func, meta, 0, NULL);
-    //if(SetThreadPriority(t, THREAD_PRIORITY_HIGHEST)==0)
-    //    assert(false);
 
 }

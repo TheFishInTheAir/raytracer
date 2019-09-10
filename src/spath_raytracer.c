@@ -30,7 +30,7 @@ void bad_buf_update(spath_raytracer_context* sprctx)
     err = clEnqueueWriteBuffer(sprctx->rctx->rcl->commands, sprctx->cl_bad_api_design_buffer, CL_TRUE,
                                0, (4*4+1)*sizeof(float),bad_buf,
                                0, NULL, NULL);
-    ASRT_CL("Error Creating OpenCL BAD API DESIGN! Buffer.");
+    ASRT_CL("Error Creating OpenCL Selection Matrix Buffer.");
 
     err = clFinish(sprctx->rctx->rcl->commands);
     ASRT_CL("Something happened while waiting for copy to finish");
@@ -159,9 +159,9 @@ void spath_raytracer_kd_collision(spath_raytracer_context* sprctx)
 
     //NOTE: used 16 on windows
     //NOTE: only using simt size on windows
-    size_t global[1] = {sprctx->rctx->rcl->num_cores*8};//ok I give up with the peristent threading.
-    size_t local[1]  = {sprctx->rctx->rcl->simt_size * sprctx->rctx->rcl->num_simt_per_multiprocessor};//sprctx->rctx->rcl->simt_size; sprctx->rctx->rcl->num_simt_per_multiprocessor
-
+    size_t global[1] = {sprctx->rctx->rcl->num_cores*16};//ok I give up with the peristent threading.
+    size_t local[1]  = {sprctx->rctx->rcl->simt_size};
+    
     err = clEnqueueNDRangeKernel(sprctx->rctx->rcl->commands, kernel, 1,
                                  NULL, global, local, 0, NULL, NULL);
     ASRT_CL("Failed to execute kd tree traversal kernel");
@@ -377,21 +377,6 @@ void spath_raytracer_render(spath_raytracer_context* sprctx)
     //printf("t1\n");
 
     bad_buf_update(sprctx);
-<<<<<<< HEAD
-    int t2 = os_get_time_mili(abst);
-    //printf("t2\n");
-    spath_raytracer_kd_collision(sprctx);
-    int t3 = os_get_time_mili(abst);
-    //printf("t3\n");
-    spath_raytracer_trace(sprctx);
-    int t4 = os_get_time_mili(abst);
-    //printf("t4\n");
-    spath_raytracer_avg_to_out(sprctx);
-    int t5 = os_get_time_mili(abst);
-    //printf("t5\n");
-    printf("num_gen: %d, collision: %d, trace: %d, draw: %d, time_since: %d, total: %d\n",
-           t2-t1, t3-t2, t4-t3, t5-t4, t1-tbottle, t5-tbottle);
-=======
 
     if(sprctx->current_iteration%50 == 0)
         t2 = os_get_time_mili(abst);
@@ -415,7 +400,6 @@ void spath_raytracer_render(spath_raytracer_context* sprctx)
                t2-t1, t3-t2, t4-t3, t5-t4, t1-tbottle, t5-tbottle,
                sprctx->current_iteration/4, sprctx->current_iteration%4, sprctx->num_iterations/4,
                ((t5-sprctx->start_time)/1000)/60, ((t5-sprctx->start_time)/1000)%60, (t5-sprctx->start_time)%1000);
->>>>>>> dcb8a7098da700ea6078380b4b9f79916d446314
     //spath_raytracer_kd_test(sprctx);
     tbottle = os_get_time_mili(abst);
 }

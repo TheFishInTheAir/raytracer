@@ -448,7 +448,6 @@ void load_program_raw(rcl_ctx* ctx, char* data,
 
     char* macro_buf = malloc(1); //garbage just so free doesn't break
 
-
     for(int i = 0; i < num_macros; i++)
     {
         int length = strlen(macros[i]);
@@ -457,6 +456,7 @@ void load_program_raw(rcl_ctx* ctx, char* data,
         free(macro_buf);
         macro_buf = buf;
     }
+    
     char* fin_data = (char*) malloc(strlen(data)+strlen(macro_buf)+1);
     fin_data[0] = '\0';
     strcpy(fin_data, macro_buf);

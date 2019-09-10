@@ -91,7 +91,7 @@ void initBitmapData(unsigned char* bmap, float offset, unsigned int width, unsig
     }
 }
 
-void doesnt_work_on_osx()
+void weird_draw()
 {
     //printf("I hope this works.\n");
     initBitmapData(ctx->bitmap_memory, 0, ctx->width, ctx->height);
@@ -111,7 +111,7 @@ os_abs init_osx_abs()
     abstraction.get_width_func = &osx_get_width;
     abstraction.get_height_func = &osx_get_height;
     abstraction.start_thread_func = &osx_start_thread;
-    abstraction.draw_weird = &doesnt_work_on_osx;
+    abstraction.draw_weird = &weird_draw;
     return abstraction;
 }
 

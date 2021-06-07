@@ -13,7 +13,7 @@ typedef struct path_raytracer_context
     int start_time;
 
     cl_mem cl_path_output_buffer;
-    cl_mem cl_path_fresh_frame_buffer; //Only exists on GPU TODO: put in path tracer file.
+    cl_mem cl_path_fresh_frame_buffer; //Only exists on GPU
 
 
 } path_raytracer_context;

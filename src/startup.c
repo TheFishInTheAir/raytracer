@@ -10,7 +10,7 @@
 #include <path_raytracer.h>
 #include <spath_raytracer.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <win32.h>
 #else
 #include <osx.h>
@@ -21,7 +21,6 @@
 #include <sys/time.h>
 #endif
 
-//#include <time.h>
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <geom.h>
@@ -66,6 +65,7 @@ char kbhit()
 
 bool should_run = true;
 bool should_pause = false;
+
 void loop_exit()
 {
     should_run = false;
@@ -76,17 +76,15 @@ void loop_pause()
     should_pause = !should_pause;
 }
 
-
 void run(void* unnused_rn)
 {
-
-
-    const int width = os_get_width(abst);
+    const int width  = os_get_width(abst);
     const int height = os_get_height(abst);
 
     const int pitch = width *4;
     uint32_t* row = (uint32_t*)os_get_bitmap_memory(abst);
 
+    //Dump info on OpenCL compatible devices.
     cl_info();
 
     rcl_ctx* rcl = (rcl_ctx*) malloc(sizeof(rcl_ctx));
@@ -94,21 +92,23 @@ void run(void* unnused_rn)
 
     raytracer_context* rctx = raytracer_init((unsigned int)width, (unsigned int)height,
                                              row, rcl);
-    //scene* rscene = (scene*) malloc(sizeof(scene));
-
 
     os_start_thread(abst, web_server_start, rctx);
 
+    // This just chooses a default integrator.
 #ifdef DEV_MODE
     rctx->event_stack[rctx->event_position++] = SPLIT_PATH_RAYTRACER;
 #endif
 
 
-
-    scene* rscene = load_scene_json_url("scenes/path_obj2.rsc"); //TODO: support changing this during runtime
+    //TODO: support changing this during runtime
+    scene* rscene = load_scene_json_url("scenes/path_obj3.rsc");
 
     rctx->stat_scene = rscene;
-    rctx->num_samples = 512; //NOTE: never actually used
+
+    //This is specific to the basic raytracer
+    rctx->num_samples = 512;
+
 
     ss_raytracer_context* ssrctx = NULL;
     path_raytracer_context* prctx = NULL;
@@ -182,9 +182,9 @@ void run(void* unnused_rn)
             case(10):
             {
                 printf("Clearing\n");
-                
+
                 current_renderer = 10;
-                    
+
                 os_draw_weird(abst);
                 os_update(abst);
                 break;
@@ -217,13 +217,17 @@ void run(void* unnused_rn)
 
 }
 
-int startup() //main function called from win32 abstraction
+//main function called from OS abstraction
+int startup()
 {
-#ifdef WIN32
+
+    //Get OS Interface VTables
+#ifdef _WIN32
     abst = init_win32_abs();
 #else
     abst = init_osx_abs();
 #endif
+
     os_start(abst);
     os_start_thread(abst, run, NULL);
 

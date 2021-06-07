@@ -19,7 +19,7 @@ void bad_buf_update(spath_raytracer_context* sprctx)
     unsigned int bad_buf[4*4+1];
     bad_buf[4*4] = 0;
     {
-        //good thing this is the same transposed. Also this is stupid, but endorced by AMD
+        //good thing this is the same transposed. Also this is stupid way of doing this, but endorced by AMD
         unsigned int mat[4*4] = {0xffffffff, 0,          0,          0,
                                  0,          0xffffffff, 0,          0,
                                  0,          0,          0xffffffff, 0,
@@ -159,7 +159,7 @@ void spath_raytracer_kd_collision(spath_raytracer_context* sprctx)
 
     //NOTE: used 16 on windows
     //NOTE: only using simt size on windows
-    size_t global[1] = {sprctx->rctx->rcl->num_cores*16};//ok I give up with the peristent threading.
+    size_t global[1] = {sprctx->rctx->rcl->num_cores*16};
     size_t local[1]  = {sprctx->rctx->rcl->simt_size};
     
     err = clEnqueueNDRangeKernel(sprctx->rctx->rcl->commands, kernel, 1,
@@ -280,7 +280,7 @@ void spath_raytracer_avg_to_out(spath_raytracer_context* sprctx)
 void spath_raytracer_trace_init(spath_raytracer_context* sprctx)
 {
     int err;
-    unsigned int random_value_WACKO = rand();
+    unsigned int random_value = rand();
     cl_kernel kernel = sprctx->rctx->program->raw_kernels[SEGMENTED_PATH_TRACE_INIT_INDX];
 
     clSetKernelArg(kernel, 0, sizeof(cl_mem), &sprctx->cl_path_output_buffer);
@@ -301,7 +301,7 @@ void spath_raytracer_trace_init(spath_raytracer_context* sprctx)
     clSetKernelArg(kernel, 10, sizeof(cl_mem), &sprctx->rctx->stat_scene->cl_mesh_nrml_buffer.image);
 
     clSetKernelArg(kernel, 11, sizeof(unsigned int), &sprctx->rctx->width);
-    clSetKernelArg(kernel, 12, sizeof(unsigned int), &random_value_WACKO);
+    clSetKernelArg(kernel, 12, sizeof(unsigned int), &random_value);
 
 
     size_t global[1] = {sprctx->rctx->width*sprctx->rctx->height};
@@ -318,7 +318,7 @@ void spath_raytracer_trace_init(spath_raytracer_context* sprctx)
 void spath_raytracer_trace(spath_raytracer_context* sprctx)
 {
     int err;
-    unsigned int random_value_WACKO = rand();// sprctx->current_iteration; //TODO: make an actual random number
+    unsigned int random_value = rand();
     cl_kernel kernel = sprctx->rctx->program->raw_kernels[SEGMENTED_PATH_TRACE_INDX];
 
     unsigned int karg = 0;
@@ -339,7 +339,7 @@ void spath_raytracer_trace(spath_raytracer_context* sprctx)
     clSetKernelArg(kernel, karg++, sizeof(cl_mem), &sprctx->rctx->stat_scene->cl_mesh_nrml_buffer.image);
 
     clSetKernelArg(kernel, karg++, sizeof(unsigned int), &sprctx->rctx->width);
-    clSetKernelArg(kernel, karg++, sizeof(unsigned int), &random_value_WACKO);
+    clSetKernelArg(kernel, karg++, sizeof(unsigned int), &random_value);
 
     size_t global[1] = {sprctx->rctx->width*sprctx->rctx->height};
 
@@ -356,8 +356,7 @@ void spath_raytracer_render(spath_raytracer_context* sprctx)
 {
     static int tbottle = 0;
     int t1, t2, t3, t4, t5;
-    
-    //Sleep(5000);
+
     if((sprctx->current_iteration+1)%50 == 0)
         t1 = os_get_time_mili(abst);
 
@@ -373,8 +372,6 @@ void spath_raytracer_render(spath_raytracer_context* sprctx)
         return;
     }
 
-    //spath_raytracer_ray_test(sprctx);
-    //printf("t1\n");
 
     bad_buf_update(sprctx);
 

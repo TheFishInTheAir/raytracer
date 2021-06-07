@@ -3,7 +3,7 @@
 #include <stdbool.h>
 
 struct scene;
-//struct AABB;
+
 //TODO: make these variable from the ui, eventually
 #define KDTREE_KT 2.0f //Cost for traversal
 #define KDTREE_KI 1.0f //Cost for intersection
@@ -40,7 +40,7 @@ typedef struct kd_tree_triangle_buffer
     unsigned int  num_triangles;
 } kd_tree_triangle_buffer;
 
-//NOTE: not using a vec3 for the floats because it would be a waste of space.
+//NOTE: not using a vec3 for the floats because it would be a waste of space as its naturally alligned with the int.
 typedef struct kd_tree_collision_result
 {
     unsigned int triangle_index;
@@ -52,7 +52,7 @@ typedef struct kd_tree_collision_result
 //NOTE: should the depth be stored in here?
 typedef struct kd_tree_node
 {
-    uint8_t k; //Splittign Axis
+    uint8_t k; //Splitting Axis
     float   b; //World Split plane
 
     struct kd_tree_node* left;
@@ -65,7 +65,9 @@ typedef struct kd_tree_node
 typedef struct kd_tree
 {
     kd_tree_node* root;
-    unsigned int k; //Num dimensions, should always be three in this case
+
+    //Num dimensions, should always be three in this case
+    unsigned int k;
 
 
 
@@ -86,8 +88,6 @@ typedef struct kd_tree
     unsigned int buffer_size;
     cl_mem cl_kd_tree_buffer;
 
-    //AABB V; //Total bounding box
-
 } kd_tree;
 
 
@@ -95,5 +95,5 @@ kd_tree*      kd_tree_init();
 kd_tree_node* kd_tree_node_init();
 
 bool kd_tree_node_is_leaf(kd_tree_node*);
-void kd_tree_construct(kd_tree* tree); //O(n log^2 n) implementation
+void kd_tree_construct(kd_tree* tree);   //O(n log^2 n) implementation
 void kd_tree_generate_serialized(kd_tree* tree);

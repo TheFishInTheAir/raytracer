@@ -50,23 +50,12 @@
 
 typedef struct _rt_ctx raytracer_context;
 
-typedef struct rt_vtable //NOTE: @REFACTOR not used anymore should delete
-{
-    bool up_to_date;
-    void (*build)(void*);
-    void (*pre_pass)(void*);
-    void (*render_frame)(void*);
-} rt_vtable;
-
-
 struct _rt_ctx
 {
     unsigned int width, height;
 
     float* ray_buffer;
-    vec4*  path_output_buffer; //TODO: put in path tracer output
     uint32_t* output_buffer;
-    //uint32_t* fresh_frame_buffer;
 
     scene* stat_scene;
     ic_context* ic_ctx;
@@ -77,11 +66,6 @@ struct _rt_ctx
     unsigned int event_stack[32];
     unsigned int event_position;
 
-    //TODO: seperate into contexts for each integrator.
-    //Path tracing only
-
-    unsigned int num_samples;    //TODO: put in path tracer file.
-    unsigned int current_sample; //TODO: put in path tracer file.
     bool render_complete;
 
     //CL
@@ -90,8 +74,14 @@ struct _rt_ctx
 
     cl_mem cl_ray_buffer;
     cl_mem cl_output_buffer;
-    cl_mem cl_path_output_buffer; //TODO: put in path tracer file
-    cl_mem cl_path_fresh_frame_buffer; //Only exists on GPU TODO: put in path tracer file.
+
+
+    //TODO: seperate the basic integrator from the main context.
+    vec4*  path_output_buffer;
+    unsigned int num_samples;
+    unsigned int current_sample;
+    cl_mem cl_path_output_buffer;
+    cl_mem cl_path_fresh_frame_buffer; //Only exists on GPU
 
 };
 
@@ -99,7 +89,7 @@ raytracer_context* raytracer_init(unsigned int width, unsigned int height,
                                   uint32_t* output_buffer, rcl_ctx* ctx);
 
 void raytracer_build(raytracer_context*);
-void raytracer_prepass(raytracer_context*); //NOTE: I would't call it a prepass, its more like a build
+void raytracer_prepass(raytracer_context*); //NOTE: Semantically more like a second part of the build
 void raytracer_render(raytracer_context*);
 void raytracer_refined_render(raytracer_context*);
 void _raytracer_gen_ray_buffer(raytracer_context*);

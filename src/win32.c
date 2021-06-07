@@ -13,7 +13,8 @@ const char CLASS_NAME[] = "Raytracer";
 
 static win32_context* ctx;
 
-void win32_draw_meme(); //vague predef
+//Lovely little vague predef
+void win32_draw_meme();
 
 os_abs init_win32_abs()
 {
@@ -60,7 +61,7 @@ void win32_draw_meme()
 
             *pixel = 0;
             ++pixel;
-            
+
         }
         row += pitch;
     }
@@ -83,7 +84,7 @@ void win32_resize_dib_section(int width, int height)
     ctx->bitmap_info.bmiHeader.biWidth         = width;
     ctx->bitmap_info.bmiHeader.biHeight        = -height;
     ctx->bitmap_info.bmiHeader.biPlanes        = 1;
-    ctx->bitmap_info.bmiHeader.biBitCount      = 32; //8 bits of paddingll
+    ctx->bitmap_info.bmiHeader.biBitCount      = 32; //8 bits of padding
     ctx->bitmap_info.bmiHeader.biCompression   = BI_RGB;
     ctx->bitmap_info.bmiHeader.biSizeImage     = 0;
     ctx->bitmap_info.bmiHeader.biXPelsPerMeter = 0;
@@ -101,11 +102,11 @@ void win32_resize_dib_section(int width, int height)
 void win32_update_window(HDC device_context, HWND win, int width, int height)
 {
 
-    int window_height = height;//window_rect.bottom - window_rect.top;
-    int window_width  = width;//window_rect.right - window_rect.left;
+    int window_height = height;
+    int window_width  = width;
 
 
-    //TODO: Replace with BitBlt this is way too slow... (we don't even need the scaling);
+    //TODO: Replace with BitBlt this is too slow... (we don't even need the scaling);
     StretchDIBits(device_context,
                   /* x, y, width, height, */
                   /* x, y, width, height, */
@@ -199,7 +200,7 @@ int _WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     ctx->wc.hInstance     = hInstance;
     ctx->wc.hIcon         = LoadIcon(NULL, IDI_APPLICATION);
     ctx->wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
-    ctx->wc.hbrBackground = 0;//(HBRUSH)(COLOR_WINDOW+1);
+    ctx->wc.hbrBackground = 0;
     ctx->wc.lpszMenuName  = NULL;
     ctx->wc.lpszClassName = CLASS_NAME;
     ctx->wc.hIconSm       = LoadIcon(NULL, IDI_APPLICATION);
@@ -221,14 +222,13 @@ int _WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
 int main()
 {
-    //printf("JANKY WINMAIN OVERRIDE\n");
     return _WinMain(GetModuleHandle(NULL), NULL, GetCommandLineA(), SW_SHOWNORMAL);
 }
 
 //Should Block the Win32 Update Loop.
 #define WIN32_SHOULD_BLOCK_LOOP
 
-void win32_loop()	
+void win32_loop()
 {
     printf("Starting WIN32 Window Loop\n");
     MSG msg;
@@ -255,8 +255,6 @@ void win32_loop()
             DispatchMessage(&msg);
         }
 #endif
-        //win32_draw_meme();
-        //win32_update_window();
     }
 }
 
@@ -351,7 +349,10 @@ DWORD WINAPI thread_func(void* data)
     }
 
     thread_func_meta* meta = (thread_func_meta*) data;
-    (meta->func)(meta->data); //confusing syntax: call the passed function with the passed data
+
+    //confusing syntax: call the passed function with the passed data
+    (meta->func)(meta->data);
+
     free(meta);
     return 0;
 }

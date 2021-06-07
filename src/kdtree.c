@@ -87,7 +87,8 @@ kd_tree_sah_results kd_tree_SAH(uint8_t k, float b, AABB V, int NL, int NR, int 
     float PL = AABB_surface_area(VL) / AABB_surface_area(V);
     float PR = AABB_surface_area(VR) / AABB_surface_area(V);
 
-    if (PL >= 1-KDTREE_EPSILON || PR >= 1-KDTREE_EPSILON) //NOTE: doesn't look like it but potential source of issues
+    //NOTE: doesn't look like it but potential source of issues
+    if (PL >= 1-KDTREE_EPSILON || PR >= 1-KDTREE_EPSILON)
         return kd_tree_sah_results_c(1000000000.0f, 0);
 
     float CPL = kd_tree_C(PL, PR, NL+NP, NR);
@@ -166,6 +167,7 @@ kd_tree* kd_tree_init()
 {
     kd_tree* tree = malloc(sizeof(kd_tree));
     tree->root = NULL;
+
     //Defaults
     tree->k    = 3;
     tree->max_recurse = 50;
@@ -217,7 +219,7 @@ kd_tree_find_plane_results kd_tree_find_plane(kd_tree* tree, AABB V,
 
     for(int k = 0; k < tree->k; k++)
     {
-        kd_tree_event_buffer event_buf = {NULL, 0}; //gets rid of an initialization warning I guess?
+        kd_tree_event_buffer event_buf = {NULL, 0};
         {// Generate events
             //Divide by three because we only want tris
             event_buf.num_events = tri_buf.num_triangles*2;
@@ -329,7 +331,8 @@ void kd_tree_classify(kd_tree* tree, kd_tree_triangle_buffer tri_buf,
         }
 
         //Favour the right rn
-        if(isLeft && isRight) //should be splitting.
+        //should be splitting.
+        if(isLeft && isRight)
         {
             TR.triangle_buffer[TRI++] = tri_buf.triangle_buffer[i];
             TL.triangle_buffer[TLI++] = tri_buf.triangle_buffer[i];
@@ -342,7 +345,7 @@ void kd_tree_classify(kd_tree* tree, kd_tree_triangle_buffer tri_buf,
                 TR.triangle_buffer[TRI++] = tri_buf.triangle_buffer[i];
             else
             {//implement this
-                printf("really bad\n");
+                printf("Bad situation\n");
                 assert(1!=1);
             }
         }
@@ -435,7 +438,8 @@ kd_tree_triangle_buffer kd_tree_gen_initial_tri_buf(kd_tree* tree)
     return buf;
 }
 
-void kd_tree_construct(kd_tree* tree) //O(n log^2 n) implementation
+//O(n log^2 n) implementation
+void kd_tree_construct(kd_tree* tree)
 {
     assert(tree->s != NULL);
 
@@ -472,8 +476,7 @@ unsigned int kd_tree_generate_serialized_buf_rec(kd_tree* tree, kd_tree_node* no
             _skd_tree_leaf_node l;
             l.type = KDTREE_LEAF;
             l.num_triangles = node->triangles.num_triangles;
-            //printf("TEST %u \n", l.num_triangles);
-            //assert(l.num_triangles != 0);
+
             offset = _kd_tree_write_buf(tree->buffer, offset, &l, sizeof(_skd_tree_leaf_node));
         }
 
@@ -524,9 +527,6 @@ void kd_tree_generate_serialized(kd_tree* tree)
     mem_needed += tree->num_traversal_nodes * sizeof(_skd_tree_traversal_node); //traversal nodes
     mem_needed += tree->num_leaves * sizeof(_skd_tree_leaf_node); //leaf nodes
     mem_needed += (tree->num_indices_total+tree->num_tris_padded) * sizeof(unsigned int); //triangle indices
-
-    //char* name = malloc(256);
-    //sprintf(name, "%d.bkdt", mem_needed);
 
     tree->buffer_size = mem_needed;
     printf("k-d tree is %d bytes long...", mem_needed);

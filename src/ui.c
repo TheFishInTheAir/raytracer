@@ -1,5 +1,5 @@
 #include <ui.h>
-#include <ui_web.h> //TODO: rename to ui_data or something
+#include <ui_web.h>
 #include <mongoose.h>
 #include <parson.h>
 #include <raytracer.h>
@@ -7,7 +7,6 @@
 static ui_ctx uctx;
 
 //Mostly based off of the exampel code for the library.
-
 
 static const char *s_http_port = "8000";
 static struct mg_serve_http_opts s_http_server_opts;
@@ -72,7 +71,7 @@ void handle_ws_request(struct mg_connection *c, char* data)
         {
             printf("UI Event Queued: Clear\n");
             uctx.rctx->event_stack[uctx.rctx->event_position++] = 10; //not well implemented yet.
-                
+
             return;
         }
         }
@@ -85,8 +84,8 @@ void handle_ws_request(struct mg_connection *c, char* data)
         printf("GE2 requested k-d tree.\n");
         if(uctx.rctx->stat_scene->kdt->buffer!=NULL)
         {
-
-            mg_send_websocket_frame(c, WEBSOCKET_OP_TEXT, //TODO: put something for this (IT'S NOT TEXT)
+            //TODO: put something for this (IT'S NOT TEXT)
+            mg_send_websocket_frame(c, WEBSOCKET_OP_TEXT,
                                     uctx.rctx->stat_scene->kdt->buffer,
                                     uctx.rctx->stat_scene->kdt->buffer_size);
         }
@@ -117,7 +116,7 @@ static void handle_ws(struct mg_connection *c, int ev, void* ev_data) {
     case MG_EV_HTTP_REQUEST:
     {
         struct http_message *hm = (struct http_message *) ev_data;
-        //TODO: do something here
+
         mg_send_head(c, 200, ___src_ui_index_html_len, "Content-Type: text/html");
         mg_printf(c, "%.*s", (int)___src_ui_index_html_len, ___src_ui_index_html);
         break;
@@ -130,7 +129,6 @@ static void handle_ws(struct mg_connection *c, int ev, void* ev_data) {
     case MG_EV_WEBSOCKET_FRAME:
     {
         struct websocket_message *wm = (struct websocket_message *) ev_data;
-        /* New websocket message. Tell everybody. */
 
         handle_ws_request(c, wm->data);
         break;
@@ -163,7 +161,7 @@ static void handle_style(struct mg_connection* c, int ev, void* ev_data) {
         mg_send_head(c, 200, ___src_ui_style_css_len, "Content-Type: text/css");
         mg_printf(c, "%.*s", (int)___src_ui_style_css_len, ___src_ui_style_css);
     }
-    //printf("TEST\n");
+
     c->flags |= MG_F_SEND_AND_CLOSE;
 }
 

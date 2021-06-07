@@ -10,27 +10,27 @@
 #include <tinyobj_loader_c.h>
 #undef TINYOBJ_LOADER_C_IMPLEMENTATION
 
-
 #include <mongoose.c>
 #include <parson.c>
 
-#ifdef _WIN32
-#define WIN32 // I don't want to fix all of my accidents right now.
-#endif
 
-
-
+//
 //REMOVE FOR PRESENTATION
-//#define DEV_MODE
+
+#define DEV_MODE
+
+//
+//Enable verbose memory allocation, movement and freeing
+
+//#define _MEM_DEBUG
 
 
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <win32.c>
 #endif
 //NOTE: osx.m is compiled seperatly and then linked at the end.
 
-//#define _MEM_DEBUG //Enable verbose memory allocation, movement and freeing
 
 #include <CL/opencl.h>
 

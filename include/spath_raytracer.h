@@ -12,9 +12,6 @@ typedef struct spath_raytracer_context
     unsigned int current_iteration;
     bool render_complete;
 
-    //unsigned int segment_width;
-    //unsigned int segment_offset;
-
     unsigned int start_time;
 
     unsigned int* random_buffer;
@@ -36,5 +33,5 @@ typedef struct spath_raytracer_context
 spath_raytracer_context* init_spath_raytracer_context(struct _rt_ctx*);
 
 void spath_raytracer_render(spath_raytracer_context*);
-//void ss_raytracer_build(ss_raytracer_context*);
+
 void spath_raytracer_prepass(spath_raytracer_context*);

@@ -20,13 +20,11 @@ __kernel void cast_ray_test(
     const __global material* material_buffer,
     const __global sphere* spheres,
     const __global plane* planes,
-//Mesh
+    //Mesh
     const __global mesh* meshes,
     image1d_buffer_t indices,
     image1d_buffer_t vertices,
     image1d_buffer_t normals,
-    /* const __global vec2* texcoords, */
-    /* , */
 
 
     const unsigned int width,
@@ -40,7 +38,7 @@ __kernel void cast_ray_test(
     s.meshes          = meshes;
 
     const vec4 sky = (vec4) (0.84, 0.87, 0.93, 0);
-    //return;
+
     int id = get_global_id(0);
     int x  = id%width;
     int y  = id/width;
@@ -50,12 +48,7 @@ __kernel void cast_ray_test(
 
     ray r;
     r = ray_buffer[ray_offset];
-    //r.orig = pos.xyz; //NOTE: unnecesesary rn, in progress of updating kernels w/ the new ray buffers.
 
-    //r.dir  = (vec3)(0,0,-1);
-
-    //out_tex[x+y*width] = get_colour_signed((vec4)(r.dir,0));
-    //out_tex[x+y*width] = get_colour_signed((vec4)(1,1,0,0));
     collision_result result;
     if(!collide_all(r, &result, s, MESH_SCENE_DATA))
     {
@@ -104,7 +97,7 @@ __kernel void cast_ray_test(
     }
 
     colour = mix(colour, colours[0],  result.mat.reflectivity);
-#ifdef WIN32
+#ifdef _WIN32
     out_tex[offset] = get_colour( colour );
 #else
     out_tex[offset] = get_colour( colour.zyxw );
@@ -130,8 +123,6 @@ __kernel void generate_rays(
     float cam_x = (2 * (((float)x + 0.5) / width) - 1) * tan(FOV / 2 * M_PI_F / 180) * aspect_ratio;
     float cam_y = (1 - 2 * (((float)y + 0.5) / height)) * tan(FOV / 2 * M_PI_F / 180);
 
-    //r.orig = matvec((float*)&wcm, (vec4)(0.0, 0.0, 0.0, 1.0)).xyz;
-    //r.dir  = matvec((float*)&wcm, (vec4)(cam_x, cam_y, -1.0f, 1)).xyz - r.orig;
 
     r.orig = (vec3)(0, 0, 0);
     r.dir  = (vec3)(cam_x, cam_y, -1.0f) - r.orig;

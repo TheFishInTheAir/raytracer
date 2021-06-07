@@ -57,6 +57,7 @@ void cl_info()
             clGetDeviceInfo(devices[j], CL_DEVICE_OPENCL_C_VERSION, valueSize, value, NULL);
             printf(" %i.%d.%d OpenCL C version: %s\n", i, j+1, 3, value);
             free(value);
+
             // print parallel compute units
             clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS,
                     sizeof(maxComputeUnits), &maxComputeUnits, NULL);
@@ -191,7 +192,7 @@ void create_context(rcl_ctx* ctx)
                             sizeof(unsigned int), &num_sm, NULL);
 
             switch(compute_capability)
-            { //nvidia skipped 4 btw
+            { //nvidia skipped 4 btw lol
             case 2: warps_per_sm = 1; break; //FERMI  (GK104/GK110)
             case 3: warps_per_sm = 6; break; //KEPLER (GK104/GK110) NOTE: ONLY 4 WARP SCHEDULERS THOUGH!
             case 5: warps_per_sm = 4; break; //Maxwell
@@ -217,7 +218,7 @@ void create_context(rcl_ctx* ctx)
             printf("INTEL INFO NOT SUPPORTED YET!\n");
             break;
         }
-        default: //APPLE is really bad and doesn't return the correct vendor id.
+        default: //APPLE is really bad and doesn't return the correct vendor id. This is a temporary fix
         {        //Just going to manually enter in data.
                 printf("WARNING: Unknown Device Manufacturer %u (%04X)\n", id, id);
                 unsigned int warp_size;
@@ -447,17 +448,19 @@ void load_program_raw(rcl_ctx* ctx, char* data,
     int err;
 
     char* macro_buf = malloc(1); //garbage just so free doesn't break
-
+    macro_buf[0] = '\0';
     for(int i = 0; i < num_macros; i++)
     {
         int length = strlen(macros[i]);
-        char* buf  = (char*) malloc(length+strlen(macro_buf)+3);
-        sprintf(buf, "%s\n%s", macros[i], macro_buf);
+        char* buf  = (char*) malloc(length+strlen(macro_buf)+2);
+        sprintf(buf, "%s\n%s", macro_buf, macros[i]);
+
         free(macro_buf);
         macro_buf = buf;
     }
     
     char* fin_data = (char*) malloc(strlen(data)+strlen(macro_buf)+1);
+
     fin_data[0] = '\0';
     strcpy(fin_data, macro_buf);
     strcpy(fin_data+strlen(macro_buf), data);
@@ -552,89 +555,4 @@ void load_program_url(rcl_ctx* ctx, char* url,
                          macros, num_macros);
     }
 
-}
-
-//NOTE: old
-void test_sphere_raytracer(rcl_ctx* ctx, rcl_program* program,
-        sphere* spheres, int num_spheres,
-        uint32_t* bitmap, int width, int height)
-{
-    int err;
-
-    static cl_mem tex;
-    static cl_mem s_buf;
-    static bool init = false; //temporary
-
-    if(!init)
-    {
-        //New Texture
-        tex = clCreateBuffer(ctx->context, CL_MEM_WRITE_ONLY,
-                                    width*height*4, NULL, &err);
-
-        //Spheres
-        s_buf = clCreateBuffer(ctx->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                               sizeof(float)*4*num_spheres, spheres, &err);
-        if (err != CL_SUCCESS)
-        {
-            printf("Error: Failed to create Sphere Buffer! %d\n", err);
-            return;
-        }
-        init = true;
-    }
-    else
-    {
-        clEnqueueWriteBuffer (	ctx->commands,
-                                s_buf,
-                                CL_TRUE,
-                                0,
-                                sizeof(float)*4*num_spheres,
-                                spheres,
-                                0,
-                                NULL,
-                                NULL);
-    }
-
-
-
-    cl_kernel kernel = program->raw_kernels[0]; //just use the first one
-
-    clSetKernelArg(kernel, 0, sizeof(cl_mem), &tex);
-    clSetKernelArg(kernel, 1, sizeof(cl_mem), &s_buf);
-    clSetKernelArg(kernel, 2, sizeof(unsigned int), &width);
-    clSetKernelArg(kernel, 3, sizeof(unsigned int), &height);
-
-
-    size_t global;
-    size_t local = 0;
-
-    err = clGetKernelWorkGroupInfo(kernel, ctx->device_id, CL_KERNEL_WORK_GROUP_SIZE,
-        sizeof(local), &local, NULL);
-    if (err != CL_SUCCESS)
-    {
-        printf("Error: Failed to retrieve kernel work group info! %d\n", err);
-        return;
-    }
-
-    // Execute the kernel over the entire range of our 1d input data set
-    // using the maximum number of work group items for this device
-    //
-    //printf("STARTING\n");
-    global =  width*height;
-    err = clEnqueueNDRangeKernel(ctx->commands, kernel, 1, NULL, &global, NULL, 0, NULL, NULL);
-    if (err)
-    {
-        printf("Error: Failed to execute kernel! %i\n",err);
-        return;
-    }
-
-
-    clFinish(ctx->commands);
-
-
-    err = clEnqueueReadBuffer(ctx->commands, tex, CL_TRUE, 0, width*height*4, bitmap, 0, NULL, NULL );
-    if (err != CL_SUCCESS)
-    {
-        printf("Error: Failed to read output array! %d\n", err);
-        exit(1);
-    }
 }

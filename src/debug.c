@@ -31,7 +31,7 @@ void _debug_free(void* ptr, int line, const char *func)
 
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 #define DEBUG_BREAK __debugbreak
 #define _FILE_SEP '\\'
 #else
@@ -42,7 +42,7 @@ void _debug_free(void* ptr, int line, const char *func)
 #define __FILENAME__ (strrchr(__FILE__, _FILE_SEP) ? strrchr(__FILE__, _FILE_SEP) + 1 : __FILE__)
 
 
-//TODO: replace all errors with this.
+//TODO: replace all CL errors with this.
 #define ASRT_CL(m)                                                                            \
     if(err!=CL_SUCCESS)                                                                       \
     {                                                                                         \
@@ -51,4 +51,3 @@ void _debug_free(void* ptr, int line, const char *func)
         fflush(stderr);                                                 \
         while(1){char c; scanf("%c",&c); exit(1);}                      \
     }
-//DEBUG_BREAK();                                                \

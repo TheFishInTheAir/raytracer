@@ -171,8 +171,7 @@ void get_geom_maps(raytracer_context* rctx, cl_mem positions, cl_mem normals)
     
     float zeroed[] = {0., 0., 0., 1.};
     float* result = matvec_mul(rctx->stat_scene->camera_world_matrix, zeroed);
-    
-    //SO MANY ARGUEMENTS
+
     clSetKernelArg(kernel, 0, sizeof(cl_mem),  &positions);
     clSetKernelArg(kernel, 1, sizeof(cl_mem),  &normals);
     clSetKernelArg(kernel, 2, sizeof(int),     &rctx->width);

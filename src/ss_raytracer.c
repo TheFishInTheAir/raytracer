@@ -64,18 +64,6 @@ ss_raytracer_context* init_ss_raytracer_context(struct _rt_ctx* rctx)
     return ssctx;
 }
 
-
-//NOTE: @REFACTOR not used anymore should delete
-rt_vtable get_ss_raytracer_vtable()//TODO: don't use tbh.
-{
-    rt_vtable v;
-    v.up_to_date = false;
-    //v.build      = &ss_raytracer_build;
-    v.pre_pass     =&ss_raytracer_prepass;
-    v.render_frame = &ss_raytracer_render;
-    return v;
-}
-
 void ss_raytracer_build(ss_raytracer_context* srctx)
 {
     raytracer_build(srctx->rctx); //nothing special

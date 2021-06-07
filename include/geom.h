@@ -16,7 +16,7 @@ typedef struct ray
 {
     vec3 orig;
     vec3 dir;
-    //float t_min, t_max;
+
 } ray; //already aligned
 
 
@@ -39,14 +39,17 @@ bool  AABB_is_planar(AABB*, uint8_t);
 
 void  AABB_construct_from_vertices(AABB*, vec3*,  unsigned int);
 void  AABB_construct_from_triangle(AABB*, ivec3*, vec3*);
+
+
 /**********/
 /* Sphere */
 /**********/
 
-//NOTE:  less memory efficient but aligns with opencl
+//NOTE:  less memory efficient but aligns with OpenCL
 typedef W_ALIGN(16) struct //sphere
 {
-    vec4 pos; //GPU stores all vec3s as vec4s in memory so we need the padding.
+    //GPU stores all vec3s as vec4s in memory so we need the padding.
+    vec4 pos;
 
     float radius;
     int material_index;
@@ -61,15 +64,13 @@ float does_collide_sphere(sphere, ray);
 /* Plane */
 /*********/
 
-typedef W_ALIGN(16) struct plane // bytes
+typedef W_ALIGN(16) struct plane
 {
-    vec4 pos; //12
-    //float test;
-
+    vec4 pos;
     vec4 norm;
-    //float test2;
 
-//32
+    //32 bytes by here
+
     int material_index;
 } U_ALIGN(16) plane;
 float does_collide_plane(plane, ray);

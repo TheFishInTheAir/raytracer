@@ -29,7 +29,7 @@ typedef struct
 typedef struct
 {
     cl_program program;
-    cl_kernel* raw_kernels; //NOTE: not a good solution
+    cl_kernel* raw_kernels; //NOTE: not an ideal solution
     char*      raw_data;
 
 } rcl_program;
@@ -43,25 +43,26 @@ typedef struct rcl_img_buf
 
 void cl_info();
 void create_context(rcl_ctx* context);
+
 void load_program_raw(rcl_ctx* ctx, char* data, char** kernels, unsigned int num_kernels,
                       rcl_program* program, char** macros, unsigned int num_macros);
 void load_program_url(rcl_ctx* ctx, char* url,  char** kernels, unsigned int num_kernels,
                       rcl_program* program, char** macros, unsigned int num_macros);
-void test_sphere_raytracer(rcl_ctx* ctx, rcl_program* program,
-                           sphere* spheres, int num_spheres,
-                           uint32_t* bitmap, int width, int height);
+
 cl_mem gen_rgb_image(raytracer_context* rctx,
                      const unsigned int width,
                      const unsigned int height);
 cl_mem gen_grayscale_buffer(raytracer_context* rctx,
                             const unsigned int width,
                             const unsigned int height);
+
 cl_mem gen_1d_image(raytracer_context* rctx, size_t t, void* ptr);
 rcl_img_buf gen_1d_image_buffer(raytracer_context* rctx, size_t t, void* ptr);
-void retrieve_buf(raytracer_context* rctx, cl_mem g_buf, void* c_buf, size_t);
 
+void retrieve_buf(raytracer_context* rctx, cl_mem g_buf, void* c_buf, size_t);
+void zero_buffer(raytracer_context* rctx, cl_mem buf, size_t size);
 void zero_buffer_img(raytracer_context* rctx, cl_mem buf, size_t element,
                  const unsigned int width,
                  const unsigned int height);
-void zero_buffer(raytracer_context* rctx, cl_mem buf, size_t size);
+
 size_t get_workgroup_size(raytracer_context* rctx, cl_kernel kernel);

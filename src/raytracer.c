@@ -14,11 +14,11 @@ raytracer_context* raytracer_init(unsigned int width, unsigned int height,
     rctx->height = height;
     rctx->ray_buffer = (float*) malloc(width * height * sizeof(ray));
     rctx->output_buffer = output_buffer;
-    //rctx->fresh_buffer = (uint32_t*) malloc(width * height * sizeof(uint32_t));
+
     rctx->rcl = rcl;
     rctx->program = (rcl_program*) malloc(sizeof(rcl_program));
     rctx->ic_ctx = (ic_context*) malloc(sizeof(ic_context));
-    //ic_init(rctx);
+
     rctx->render_complete = false;
     rctx->num_samples     = 64; //NOTE: arbitrary default
     rctx->current_sample  = 0;
@@ -141,7 +141,7 @@ void raytracer_render(raytracer_context* rctx)
     _raytracer_cast_rays(rctx);
 }
 
-//#define JANK_SAMPLES 32
+
 void raytracer_refined_render(raytracer_context* rctx)
 {
     rctx->current_sample++;

@@ -134,16 +134,20 @@ bool hitBoundingBox(vec3 vmin, vec3 vmax,
 
 //Moller-Trumbore
 //t u v = x y z
-bool does_collide_triangle(vec3 tri[4], vec3* hit_coords, ray r) //tri has extra for padding
+
+//tri has extra for padding
+bool does_collide_triangle(vec3 tri[4], vec3* hit_coords, ray r)
 {
 
     vec3 ab = tri[1] - tri[0];
     vec3 ac = tri[2] - tri[0];
 
-    vec3 pvec = cross(r.dir, ac); //Triple product
+    //Triple product
+    vec3 pvec = cross(r.dir, ac);
     float det = dot(ab, pvec);
 
-    if (det < EPSILON) // Behind or close to parallel.
+    // Behind or close to parallel.
+    if (det < EPSILON)
         return false;
 
     float invDet = 1.f / det;
@@ -174,16 +178,19 @@ bool does_collide_triangle(vec3 tri[4], vec3* hit_coords, ray r) //tri has extra
 
 bool does_collide_sphere(sphere s, ray r, float *dist)
 {
-    float t0, t1; // solutions for t if the ray intersects
+    // solutions for t if the ray intersects
+    float t0, t1;
 
     // analytic solution
     vec3 L = s.pos- r.orig;
     float b = dot(r.dir, L) ;//* 2.0f;
-    float c = dot(L, L) - (s.radius*s.radius); //NOTE: you can optimize out the square.
+    //NOTE: you can optimize out the square.
+    float c = dot(L, L) - (s.radius*s.radius);
 
-    float disc = b * b - c/**a*/; /* discriminant of quadratic formula */
+    // discriminant of quadratic formula
+    float disc = b * b - c/**a*/;
 
-    /* solve for t (distance to hitpoint along ray) */
+    // solve for t (distance to hitpoint along ray)
     float t = false;
 
     if (disc < 0.0f) return false;
@@ -207,7 +214,8 @@ bool does_collide_sphere(sphere s, ray r, float *dist)
 bool does_collide_plane(plane p, ray r, float *dist)
 {
     float denom = dot(r.dir, p.normal);
-    if (denom < EPSILON) //Counter intuitive.
+    //Counter intuitive.
+    if (denom < EPSILON)
     {
         vec3 l = p.pos - r.orig;
         float t = dot(l, p.normal) / denom;
@@ -232,7 +240,6 @@ bool does_collide_plane(plane p, ray r, float *dist)
 bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist, scene s,
                             MESH_SCENE_DATA_PARAM)
 {
-    //TODO: k-d trees
     *dist = FAR_PLANE;
     float min_t = FAR_PLANE;
     vec3 hit_coord; //NOTE: currently unused
@@ -242,7 +249,8 @@ bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist, sce
         return false;
     }
 
-    for(int i = 0; i < collider.num_indices/3; i++) // each ivec3
+    // each ivec3
+    for(int i = 0; i < collider.num_indices/3; i++)
     {
         vec3 tri[4];
 
@@ -256,9 +264,6 @@ bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist, sce
         tri[1] = read_imagef(vertices, idx_1.x).xyz;
         tri[2] = read_imagef(vertices, idx_2.x).xyz;
 
-        //printf("%d/%d: (%f, %f, %f)\n", idx_0.x, collider.num_indices/3, tri[0].x, tri[0].y, tri[0].z);
-        //printf("%d/%d: (%f, %f, %f)\n", idx_1.x, collider.num_indices/3, tri[1].x, tri[1].y, tri[1].z);
-
         vec3 bc_hit_coords = (vec3)(0.f); //t u v = x y z
         if(does_collide_triangle(tri, &bc_hit_coords, r) &&
            bc_hit_coords.x<min_t && bc_hit_coords.x>0)
@@ -268,7 +273,7 @@ bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist, sce
                 read_imagef(normals, idx_0.y).xyz*(1-bc_hit_coords.y-bc_hit_coords.z)+
                 read_imagef(normals, idx_1.y).xyz*bc_hit_coords.y+
                 read_imagef(normals, idx_2.y).xyz*bc_hit_coords.z;
-                //break; //convex optimization
+            //break; //convex optimization
         }
 
     }
@@ -282,7 +287,6 @@ bool does_collide_with_mesh(mesh collider, ray r, vec3* normal, float* dist, sce
 bool does_collide_with_mesh_nieve(mesh collider, ray r, vec3* normal, float* dist, scene s,
                                   image1d_buffer_t tree, MESH_SCENE_DATA_PARAM)
 {
-        //TODO: k-d trees
     *dist = FAR_PLANE;
     float min_t = FAR_PLANE;
     vec3 hit_coord; //NOTE: currently unused
@@ -292,7 +296,8 @@ bool does_collide_with_mesh_nieve(mesh collider, ray r, vec3* normal, float* dis
         return false;
     }
 
-    for(int i = 0; i < collider.num_indices/3; i++) // each ivec3
+    // each ivec3
+    for(int i = 0; i < collider.num_indices/3; i++)
     {
         vec3 tri[4];
 
@@ -305,9 +310,6 @@ bool does_collide_with_mesh_nieve(mesh collider, ray r, vec3* normal, float* dis
         tri[0] = read_imagef(vertices, idx_0.x).xyz;
         tri[1] = read_imagef(vertices, idx_1.x).xyz;
         tri[2] = read_imagef(vertices, idx_2.x).xyz;
-
-        //printf("%d/%d: (%f, %f, %f)\n", idx_0.x, collider.num_indices/3, tri[0].x, tri[0].y, tri[0].z);
-        //printf("%d/%d: (%f, %f, %f)\n", idx_1.x, collider.num_indices/3, tri[1].x, tri[1].y, tri[1].z);
 
         vec3 bc_hit_coords = (vec3)(0.f); //t u v = x y z
         if(does_collide_triangle(tri, &bc_hit_coords, r) &&
@@ -414,7 +416,7 @@ bool collide_primitives(ray r, collision_result* result, scene s)
     result->dist = FAR_PLANE;
     for(int i = 0; i < SCENE_NUM_SPHERES; i++)
     {
-        sphere current_sphere = s.spheres[i];//get_sphere(spheres, i);
+        sphere current_sphere = s.spheres[i];
         float local_dist = FAR_PLANE;
         if(does_collide_sphere(current_sphere, r, &local_dist))
         {
@@ -432,7 +434,7 @@ bool collide_primitives(ray r, collision_result* result, scene s)
 
     for(int i = 0; i < SCENE_NUM_PLANES; i++)
     {
-        plane current_plane = s.planes[i];//get_plane(planes, i);
+        plane current_plane = s.planes[i];
         float local_dist =  FAR_PLANE;
         if(does_collide_plane(current_plane, r, &local_dist))
         {

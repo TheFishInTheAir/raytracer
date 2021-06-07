@@ -1,8 +1,5 @@
 #pragma once
 
-//TODO: @REFACTOR file to just be memory_util
-
-
 #ifdef _WIN32
 
 #define W_ALIGN(x) __declspec( align (x) )

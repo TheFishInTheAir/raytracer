@@ -1,3 +1,4 @@
+
 #define FOV 80.0f
 
 #define vec2 float2
@@ -8,6 +9,7 @@
 #define FAR_PLANE 100000000
 
 typedef float mat4[16];
+typedef __global uint4* kd_44_matrix;
 
 
 
@@ -129,4 +131,29 @@ __kernel void blit_float3_to_output(
     int y  = id/width;
     int offset = x+y*width;
     out_tex[offset] = get_colour(read_imagef(in_flts, sampler, (float2)(x, y)));
+}
+
+
+#ifdef DEBUG
+//NOTE: this will be slow.
+#define assert(x)                                                       \
+    if (! (x))                                                          \
+    {                                                                   \
+        int i = 0;while(i++ < 100)printf("Assert(%s) failed in %s:%d\n", #x, __FUNCTION__, __LINE__); \
+        return;                                                         \
+    }
+#else
+#define assert(x)  //Nothing
+#endif
+
+void dbg_print_matrix(kd_44_matrix m)
+{
+    printf("[%2u %2u %2u %2u]\n" \
+           "[%2u %2u %2u %2u]\n" \
+           "[%2u %2u %2u %2u]\n" \
+           "[%2u %2u %2u %2u]\n\n",
+           m[0].x, m[0].y, m[0].z, m[0].w,
+           m[1].x, m[1].y, m[1].z, m[1].w,
+           m[2].x, m[2].y, m[2].z, m[2].w,
+           m[3].x, m[3].y, m[3].z, m[3].w);
 }

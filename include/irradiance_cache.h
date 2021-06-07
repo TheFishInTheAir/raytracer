@@ -6,7 +6,8 @@
 #include <stdint.h>
 #include <alignment_util.h>
 
-#define NUM_MIPMAPS 4 //NOTE: 1080/(2^4) != integer
+//NOTE: 1080/(2^4) != integer
+#define NUM_MIPMAPS 4
 
 typedef struct _rt_ctx raytracer_context;
 

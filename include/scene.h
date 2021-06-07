@@ -1,10 +1,6 @@
 #pragma once
 #include <alignment_util.h>
 #include <vec.h>
-//typedef struct{} sphere;
-//struct sphere;
-//struct plane;
-//struct kd_tree;
 
 typedef struct _rt_ctx raytracer_context;
 
